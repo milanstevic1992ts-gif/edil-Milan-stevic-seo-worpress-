@@ -321,11 +321,23 @@ final class EMS_Local_SEO_Schema {
             return $selected;
         }
 
+        $local_role = (string) get_post_meta( $post->ID, '_ems_local_role', true );
+        if ( 'service' === $local_role ) {
+            return 'service';
+        }
+
         return 'post' === $post->post_type ? 'article' : 'webpage';
     }
 
     private function service_node( WP_Post $post, string $service_id, string $business_id ): array {
         $name = trim( (string) get_post_meta( $post->ID, '_ems_seo_service_name', true ) );
+        if ( '' === $name ) {
+            $local_key = (string) get_post_meta( $post->ID, '_ems_local_service_key', true );
+            $catalog   = class_exists( 'EMS_Local_SEO_Local_Engine' ) ? EMS_Local_SEO_Local_Engine::service_catalog() : array();
+            if ( isset( $catalog[ $local_key ]['label'] ) ) {
+                $name = (string) $catalog[ $local_key ]['label'];
+            }
+        }
         if ( '' === $name ) {
             $name = get_the_title( $post );
         }
@@ -337,6 +349,7 @@ final class EMS_Local_SEO_Schema {
             'serviceType' => $name,
             'url'         => get_permalink( $post ),
             'provider'    => array( '@id' => $business_id ),
+            'mainEntityOfPage' => array( '@id' => get_permalink( $post ) . '#webpage' ),
         );
 
         $areas = $this->lines( (string) EMS_Local_SEO_Settings::get( 'service_areas', '' ) );
