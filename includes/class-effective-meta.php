@@ -139,7 +139,9 @@ final class EMS_Local_SEO_Effective_Meta {
 			'href'
 		);
 
-		return $this->normalize_parsed( $titles, $descriptions, $canonicals, $robots );
+		$links = $this->attribute_values( $xpath->query( '//a[@href]' ), 'href' );
+
+		return $this->normalize_parsed( $titles, $descriptions, $canonicals, $robots, $links );
 	}
 
 	private function parse_with_regex( string $html ): array {
@@ -164,7 +166,17 @@ final class EMS_Local_SEO_Effective_Meta {
 			}
 		}
 
-		return $this->normalize_parsed( $titles, $descriptions, $canonicals, $robots );
+		$links = array();
+		if ( preg_match_all( '/<a\b[^>]*>/is', $html, $anchor_tags ) ) {
+			foreach ( $anchor_tags[0] as $tag ) {
+				$href = $this->regex_attribute( $tag, 'href' );
+				if ( '' !== $href ) {
+					$links[] = $href;
+				}
+			}
+		}
+
+		return $this->normalize_parsed( $titles, $descriptions, $canonicals, $robots, $links );
 	}
 
 	private function regex_meta_values( string $html, string $name ): array {
@@ -237,11 +249,12 @@ final class EMS_Local_SEO_Effective_Meta {
 		return $values;
 	}
 
-	private function normalize_parsed( array $titles, array $descriptions, array $canonicals, array $robots ): array {
+	private function normalize_parsed( array $titles, array $descriptions, array $canonicals, array $robots, array $links = array() ): array {
 		$titles       = $this->clean_values( $titles );
 		$descriptions = $this->clean_values( $descriptions );
 		$canonicals   = $this->clean_values( $canonicals );
 		$robots       = $this->clean_values( $robots );
+		$links        = array_values( array_unique( $this->clean_values( $links ) ) );
 
 		return array(
 			'title'           => $titles[0] ?? '',
@@ -258,6 +271,8 @@ final class EMS_Local_SEO_Effective_Meta {
 			'all_robots'      => $robots,
 			'noindex'         => $this->robots_has( $robots, 'noindex' ),
 			'nofollow'        => $this->robots_has( $robots, 'nofollow' ),
+			'links'           => $links,
+			'link_count'      => count( $links ),
 		);
 	}
 
@@ -318,6 +333,8 @@ final class EMS_Local_SEO_Effective_Meta {
 			'all_robots'        => array(),
 			'noindex'           => false,
 			'nofollow'          => false,
+			'links'             => array(),
+			'link_count'        => 0,
 		);
 	}
 
