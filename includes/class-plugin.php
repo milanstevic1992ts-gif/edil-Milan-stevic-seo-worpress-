@@ -17,6 +17,8 @@ final class EMS_Local_SEO_Plugin {
     public EMS_Local_SEO_Content_Map $content_map;
     public EMS_Local_SEO_Search_Console $search_console;
     public EMS_Local_SEO_Opportunities $opportunities;
+    public EMS_Local_SEO_Link_Health $link_health;
+    public EMS_Local_SEO_Case_Studies $case_studies;
 
     public static function instance(): self {
         if ( null === self::$instance ) {
@@ -43,6 +45,8 @@ final class EMS_Local_SEO_Plugin {
         $this->content_map   = new EMS_Local_SEO_Content_Map();
         $this->search_console = new EMS_Local_SEO_Search_Console();
         $this->opportunities  = new EMS_Local_SEO_Opportunities( $this->search_console );
+        $this->link_health    = new EMS_Local_SEO_Link_Health();
+        $this->case_studies   = new EMS_Local_SEO_Case_Studies();
 
         $this->compatibility->hooks();
         $this->settings->hooks();
@@ -53,6 +57,8 @@ final class EMS_Local_SEO_Plugin {
         $this->content_map->hooks();
         $this->search_console->hooks();
         $this->opportunities->hooks();
+        $this->link_health->hooks();
+        $this->case_studies->hooks();
 
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
     }
