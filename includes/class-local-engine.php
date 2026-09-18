@@ -51,6 +51,7 @@ final class EMS_Local_SEO_Local_Engine {
 		check_admin_referer( 'ems_local_seo_rebuild_local_engine' );
 		delete_transient( self::TRANSIENT_KEY );
 		$this->build( true );
+		do_action( 'ems_local_seo_observed_change', 'local_engine_rebuilt', array( 'source' => 'local_engine' ) );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=ems-local-seo-local-engine&ems_local=done' ) );
 		exit;
