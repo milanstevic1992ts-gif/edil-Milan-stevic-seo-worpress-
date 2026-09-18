@@ -105,15 +105,26 @@ Riferimento: `docs/BASELINE-2026-09-18.md`.
 La mancanza di Search Console, case study o altre fonti non blocca il motore. Il segnale viene marcato come assente e il livello dati resta `iniziale` o `in apprendimento`; non viene mai convertito in zero.
 
 ## Fase 3 — v1.2: opportunità commerciali e contatti
-**Priorità P1.**
+**Priorità P1. Stato: in sviluppo sul branch `feature/v1.2-action-center`.**
 
-- Dashboard “Le 5 azioni di questa settimana”.
-- Priorità basate su servizio, visibilità, contatti osservati, gravità tecnica e affidabilità del dato.
-- Eventi separati: WhatsApp, telefono, quiz, modulo riuscito, contatto qualificato.
-- Rispetto consenso e nessun dato personale nei parametri analytics.
-- Provenienza Google Business separata mediante link marcati.
-- Filtri servizio/dispositivo, confronti 3/6 mesi e diario modifiche.
+### Implementato
+- Dashboard “Le 5 azioni della settimana”, utilizzabile anche senza Search Console.
+- Priorità diagnostiche da HTML pubblico, Link Health, architettura locale, entità aziendale, link interni e GSC quando disponibile.
+- Massimo cinque azioni con fonte, motivo, affidabilità e punto di intervento.
+- Query presente su più URL rinominata “Query distribuita su più URL”; nessuna diagnosi automatica di cannibalizzazione.
+- Diario cambiamenti limitato a 200 eventi con solo timestamp, tipo, post ID, servizio e fonte.
+- Nessun testo pagina, email, telefono, IP o messaggio nel diario.
+- Store aggregato predisposto per eventi WhatsApp, telefono, quiz, modulo riuscito e contatto qualificato.
+- I segnali commerciali sono conteggi giornalieri aggregati; l'assenza di osservazioni non viene mostrata come zero contatti.
+- Nessun tracking frontend automatico: CTA, quiz e moduli verranno collegati soltanto quando consenso e integrazione sono verificati.
+- Il Motore Locale viene invalidato correttamente quando cambiano i lavori reali.
 - Nessun cron GSC finché il contesto di autenticazione supportato non è verificato.
+
+### Da completare dopo dati/integrations reali
+- collegamento consent-aware di WhatsApp, telefono, quiz e form agli eventi aggregati;
+- provenienza Google Business separata con marcatura verificata;
+- filtri dispositivo e confronti 3/6 mesi solo quando la fonte GSC li espone in modo verificato;
+- correlazione tra diario modifiche e andamento GSC, senza attribuire causalità automaticamente.
 
 ## Fase 4 — v1.3: cantieri reali, contenuti e reputazione
 **Priorità P1 bagno/piastrelle; P2 altri servizi.**
