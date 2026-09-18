@@ -1,0 +1,9 @@
+{
+  "name": "edil-milan-stevic/ems-local-seo",
+  "description": "Local SEO plugin for EDIL MILAN STEVIC",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=8.0"
+  }
+}
