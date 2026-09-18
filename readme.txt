@@ -4,7 +4,7 @@ Tags: seo, local seo, schema, localbusiness, construction
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 
 SEO locale e tecnico per EDIL MILAN STEVIC.
@@ -30,6 +30,18 @@ Il punteggio dell'audit è una metrica interna diagnostica e non rappresenta un 
 
 
 == Changelog ==
+
+= 1.2.0 =
+* Centro Azioni: massimo cinque priorità operative costruite soltanto sui segnali disponibili.
+* Funzionamento cold-start senza obbligo di Search Console o storico conversioni.
+* Diario cambiamenti limitato a metadata operativi, senza testi pagina o dati personali.
+* Segnali commerciali aggregati predisposti per WhatsApp, telefono, quiz, modulo e contatto qualificato.
+* Nessun tracking frontend automatico finché consenso e integrazione non sono verificati.
+* Query distribuite su più URL trattate come sovrapposizione da verificare, non cannibalizzazione automatica.
+* Correzione invalidazione Motore Locale quando cambiano i lavori reali.
+* Dashboard e roadmap aggiornate per raccolta progressiva dei dati.
+
+
 
 = 1.1.0 =
 * Motore locale adattivo per architettura SEO Trieste.
