@@ -139,6 +139,8 @@ final class EMS_Local_SEO_Settings {
 
         $detected = $this->compatibility->get_detected();
         $audit    = EMS_Local_SEO_Audit::cached_summary();
+        $local    = class_exists( 'EMS_Local_SEO_Local_Engine' ) ? EMS_Local_SEO_Plugin::instance()->local_engine->build() : array();
+        $local_state = (array) ( $local['data_state'] ?? array() );
         ?>
         <div class="wrap ems-seo-wrap">
             <div class="ems-seo-hero">
@@ -161,12 +163,13 @@ final class EMS_Local_SEO_Settings {
                 <div class="ems-seo-card"><span>Pagine controllate</span><strong><?php echo esc_html( (string) ( $audit['pages'] ?? 0 ) ); ?></strong><small>post e pagine pubblicati</small></div>
                 <div class="ems-seo-card"><span>Problemi</span><strong><?php echo esc_html( (string) ( $audit['issues'] ?? 0 ) ); ?></strong><small>elementi da verificare</small></div>
                 <div class="ems-seo-card"><span>Schema locale</span><strong><?php echo self::get( 'enable_schema', 1 ) ? 'ON' : 'OFF'; ?></strong><small>LocalBusiness + grafo</small></div>
+                <div class="ems-seo-card"><span>Motore locale</span><strong><?php echo esc_html( strtoupper( (string) ( $local_state['level'] ?? 'iniziale' ) ) ); ?></strong><small><?php echo esc_html( (string) ( $local_state['available'] ?? 0 ) ); ?>/<?php echo esc_html( (string) ( $local_state['total'] ?? 5 ) ); ?> fonti disponibili</small></div>
             </div>
 
             <div class="ems-seo-panel">
                 <h2>Stato sviluppo</h2>
-                <p><strong>v1.0.1 P0:</strong> stabilità in verifica · metadata pubblici · scansioni riprendibili · GSC con qualità del dato · test WordPress/TSF.</p>
-                <p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-verification' ) ); ?>">Verifica HTML pubblico</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-link-health' ) ); ?>">Link Health</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-opportunities' ) ); ?>">Opportunità Google</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-audit' ) ); ?>">Audit database</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-settings' ) ); ?>">Configura attività</a></p>
+                <p><strong>v1.0.1:</strong> stabile · <strong>v1.1:</strong> motore locale adattivo in sviluppo. Parte dai contenuti esistenti e aumenta l'affidabilità quando arrivano HTML pubblico, Search Console, classificazioni manuali e lavori reali.</p>
+                <p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-local-engine' ) ); ?>">Motore locale</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-verification' ) ); ?>">Verifica HTML pubblico</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-link-health' ) ); ?>">Link Health</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-opportunities' ) ); ?>">Opportunità Google</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-audit' ) ); ?>">Audit database</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-settings' ) ); ?>">Configura attività</a></p>
             </div>
         </div>
         <?php
