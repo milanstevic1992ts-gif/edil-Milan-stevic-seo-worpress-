@@ -114,23 +114,31 @@ jobs:
       - name: Install The SEO Framework
         run: wp plugin install autodescription --activate --path=/tmp/wp --allow-root
 
-      - name: Install stable v1.0.0 and activate
+      - name: Install latest stable and activate
         run: |
           rm -rf /tmp/stable /tmp/wp/wp-content/plugins/ems-local-seo
           mkdir -p /tmp/stable /tmp/wp/wp-content/plugins/ems-local-seo
-          git archive v1.0.0 | tar -x -C /tmp/stable
+          STABLE_TAG=$(git tag --sort=-v:refname | head -n1)
+          STABLE_VERSION=${STABLE_TAG#v}
+          test -n "$STABLE_TAG"
+          echo "$STABLE_TAG" > /tmp/ems-stable-tag
+          echo "$STABLE_VERSION" > /tmp/ems-stable-version
+          git archive "$STABLE_TAG" | tar -x -C /tmp/stable
           rsync -a /tmp/stable/ /tmp/wp/wp-content/plugins/ems-local-seo/ \
             --exclude '.git/' --exclude '.github/' --exclude 'tests/' --exclude 'vendor/' --exclude 'build/'
           wp plugin activate ems-local-seo --path=/tmp/wp --allow-root
-          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = '1.0.0'
+          STABLE_VERSION=$(cat /tmp/ems-stable-version)
+          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = "$STABLE_VERSION"
           test "$(wp eval '$p=EMS_Local_SEO_Plugin::instance(); echo $p->compatibility->has_tsf() ? "yes" : "no";' --path=/tmp/wp --allow-root)" = 'yes'
 
-      - name: Upgrade files to v1.0.1 candidate
+      - name: Upgrade files to candidate
         run: |
           rsync -a --delete ./ /tmp/wp/wp-content/plugins/ems-local-seo/ \
             --exclude '.git/' --exclude '.github/' --exclude 'tests/' --exclude 'vendor/' --exclude 'build/' --exclude 'phpunit.xml.dist'
-          test "$(wp eval 'echo EMS_LOCAL_SEO_VERSION;' --path=/tmp/wp --allow-root)" = '1.0.1'
-          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = '1.0.1'
+          CANDIDATE_VERSION=$(sed -n 's/^ \* Version: //p' ems-local-seo.php | head -n1 | tr -d '\r')
+          test -n "$CANDIDATE_VERSION"
+          test "$(wp eval 'echo EMS_LOCAL_SEO_VERSION;' --path=/tmp/wp --allow-root)" = "$CANDIDATE_VERSION"
+          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = "$CANDIDATE_VERSION"
           wp plugin is-active ems-local-seo --path=/tmp/wp --allow-root
 
       - name: Check coexistence with TSF metadata hooks
@@ -142,13 +150,14 @@ jobs:
           test "$DESC_COUNT" -le 1
           test "$CANONICAL_COUNT" -le 1
 
-      - name: Roll back to v1.0.0
+      - name: Roll back to latest stable
         run: |
           rsync -a --delete /tmp/stable/ /tmp/wp/wp-content/plugins/ems-local-seo/ \
             --exclude '.git/' --exclude '.github/' --exclude 'tests/' --exclude 'vendor/' --exclude 'build/'
           wp plugin deactivate ems-local-seo --path=/tmp/wp --allow-root
           wp plugin activate ems-local-seo --path=/tmp/wp --allow-root
-          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = '1.0.0'
+          STABLE_VERSION=$(cat /tmp/ems-stable-version)
+          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = "$STABLE_VERSION"
 
       - name: Build and install candidate ZIP
         run: |
@@ -162,5 +171,6 @@ jobs:
           wp plugin deactivate ems-local-seo --path=/tmp/wp --allow-root
           rm -rf /tmp/wp/wp-content/plugins/ems-local-seo
           wp plugin install build/ems-local-seo.zip --activate --path=/tmp/wp --allow-root
-          test "$(wp eval 'echo EMS_LOCAL_SEO_VERSION;' --path=/tmp/wp --allow-root)" = '1.0.1'
+          CANDIDATE_VERSION=$(sed -n 's/^ \* Version: //p' ems-local-seo.php | head -n1 | tr -d '\r')
+          test "$(wp eval 'echo EMS_LOCAL_SEO_VERSION;' --path=/tmp/wp --allow-root)" = "$CANDIDATE_VERSION"
           wp plugin is-active ems-local-seo --path=/tmp/wp --allow-root
