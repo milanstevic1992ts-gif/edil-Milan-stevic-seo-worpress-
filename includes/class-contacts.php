@@ -148,7 +148,7 @@ JS;
 	public function handle_event( WP_REST_Request $request ): WP_REST_Response {
 		$response = new WP_REST_Response( null, 204 );
 
-		if ( ! self::tracking_allowed() || $this->is_bot() || ! $this->same_origin_request( $request ) ) {
+		if ( ! self::is_enabled() || $this->is_bot() || ! $this->same_origin_request( $request ) ) {
 			return $response;
 		}
 
