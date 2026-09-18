@@ -4,7 +4,7 @@ Tags: seo, local seo, schema, localbusiness, construction
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.1.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 
 SEO locale e tecnico per EDIL MILAN STEVIC.
