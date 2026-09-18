@@ -25,6 +25,10 @@ final class EMS_Local_SEO_Plugin {
     public EMS_Local_SEO_Change_Journal $change_journal;
     public EMS_Local_SEO_Conversion_Signals $conversion_signals;
     public EMS_Local_SEO_Action_Center $action_center;
+    public EMS_Local_SEO_IndexNow $indexnow;
+    public EMS_Local_SEO_Contacts $contacts;
+    public EMS_Local_SEO_Setup $setup;
+    public EMS_Local_SEO_Dashboard $dashboard;
 
     public static function instance(): self {
         if ( null === self::$instance ) {
@@ -69,6 +73,16 @@ final class EMS_Local_SEO_Plugin {
             $this->change_journal,
             $this->conversion_signals
         );
+        $this->indexnow        = new EMS_Local_SEO_IndexNow();
+        $this->contacts        = new EMS_Local_SEO_Contacts( $this->conversion_signals );
+        $this->setup           = new EMS_Local_SEO_Setup( $this->compatibility, $this->search_console );
+        $this->dashboard       = new EMS_Local_SEO_Dashboard(
+            $this->search_console,
+            $this->opportunities,
+            $this->setup,
+            $this->action_center,
+            $this->contacts
+        );
 
         $this->compatibility->hooks();
         $this->settings->hooks();
@@ -86,6 +100,10 @@ final class EMS_Local_SEO_Plugin {
         $this->change_journal->hooks();
         $this->conversion_signals->hooks();
         $this->action_center->hooks();
+        $this->indexnow->hooks();
+        $this->contacts->hooks();
+        $this->setup->hooks();
+        $this->dashboard->hooks();
 
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
     }
@@ -141,5 +159,10 @@ final class EMS_Local_SEO_Plugin {
         );
 
         update_option( 'ems_local_seo_version', EMS_LOCAL_SEO_VERSION, false );
+    }
+
+    public static function deactivate(): void {
+        wp_unschedule_hook( EMS_Local_SEO_IndexNow::CRON_HOOK );
+        wp_unschedule_hook( EMS_Local_SEO_Search_Console::CRON_HOOK );
     }
 }
