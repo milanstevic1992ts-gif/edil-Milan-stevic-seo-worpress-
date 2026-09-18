@@ -102,12 +102,8 @@ final class EMS_Local_SEO_Search_Console {
 			'range_days'   => self::RANGE_DAYS,
 			'data_lag_days'=> self::DATA_LAG_DAYS,
 			'ranges'       => $ranges,
-			'current'      => array(
-				'rows' => $current,
-			),
-			'previous'     => array(
-				'rows' => $previous,
-			),
+			'current'      => $current,
+			'previous'     => $previous,
 		);
 
 		update_option( self::SNAPSHOT_OPTION, $snapshot, false );
@@ -154,12 +150,34 @@ final class EMS_Local_SEO_Search_Console {
 		}
 
 		$rows = $this->extract_rows( $data );
+		if ( is_wp_error( $rows ) ) {
+			return $rows;
+		}
 
-		return $this->normalize_rows( $rows, $dimensions );
+		$normalized = $this->normalize_rows( $rows, $dimensions );
+
+		return array(
+			'rows' => $normalized,
+			'meta' => array(
+				'dimensions'         => array_values( $dimensions ),
+				'raw_rows'           => count( $rows ),
+				'normalized_rows'    => count( $normalized ),
+				'requested_limit'    => self::MAX_ROWS,
+				'possibly_truncated' => count( $rows ) >= self::MAX_ROWS,
+				'complete_claimed'   => false,
+			),
+		);
 	}
 
-	private function extract_rows( mixed $data ): array {
+	private function extract_rows( mixed $data ): array|WP_Error {
 		if ( ! is_array( $data ) ) {
+			return new WP_Error(
+				'ems_gsc_unexpected_shape',
+				'Risposta Search Console inattesa: il payload non è un array.'
+			);
+		}
+
+		if ( array() === $data ) {
 			return array();
 		}
 
@@ -175,7 +193,13 @@ final class EMS_Local_SEO_Search_Console {
 			return $data;
 		}
 
-		return array();
+		return new WP_Error(
+			'ems_gsc_unexpected_shape',
+			'Risposta Search Console inattesa: EMS non riconosce la struttura restituita da Site Kit.',
+			array(
+				'keys' => array_slice( array_keys( $data ), 0, 20 ),
+			)
+		);
 	}
 
 	private function is_list_array( array $value ): bool {
@@ -257,8 +281,14 @@ final class EMS_Local_SEO_Search_Console {
 			array(
 				'generated_at' => (string) ( $snapshot['generated_at'] ?? current_time( 'mysql' ) ),
 				'ranges'       => (array) ( $snapshot['ranges'] ?? array() ),
-				'current'      => $this->compact_summary( (array) ( $snapshot['current']['rows'] ?? array() ) ),
-				'previous'     => $this->compact_summary( (array) ( $snapshot['previous']['rows'] ?? array() ) ),
+				'current'      => array_merge(
+					$this->compact_summary( (array) ( $snapshot['current']['rows'] ?? array() ) ),
+					array( 'meta' => (array) ( $snapshot['current']['meta'] ?? array() ) )
+				),
+				'previous'     => array_merge(
+					$this->compact_summary( (array) ( $snapshot['previous']['rows'] ?? array() ) ),
+					array( 'meta' => (array) ( $snapshot['previous']['meta'] ?? array() ) )
+				),
 			)
 		);
 
