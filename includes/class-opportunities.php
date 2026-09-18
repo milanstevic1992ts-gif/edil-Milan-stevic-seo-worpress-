@@ -13,6 +13,7 @@ final class EMS_Local_SEO_Opportunities {
 
 	public function hooks(): void {
 		add_action( 'admin_menu', array( $this, 'register_page' ), 50 );
+		add_action( 'admin_post_ems_local_seo_export_opportunities', array( $this, 'handle_export' ) );
 	}
 
 	public function register_page(): void {
@@ -24,6 +25,60 @@ final class EMS_Local_SEO_Opportunities {
 			'ems-local-seo-opportunities',
 			array( $this, 'render' )
 		);
+	}
+
+	public function handle_export(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'ems-local-seo' ) );
+		}
+
+		check_admin_referer( 'ems_local_seo_export_opportunities' );
+
+		$snapshot = $this->search_console->get_snapshot();
+		if ( empty( $snapshot ) ) {
+			wp_die( esc_html__( 'Nessuno snapshot Search Console disponibile.', 'ems-local-seo' ) );
+		}
+
+		$analysis = $this->analyze( $snapshot );
+
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=UTF-8' );
+		header( 'Content-Disposition: attachment; filename="ems-seo-opportunita-' . gmdate( 'Y-m-d' ) . '.csv"' );
+
+		$output = fopen( 'php://output', 'w' );
+		if ( false === $output ) {
+			wp_die( esc_html__( 'Impossibile generare il CSV.', 'ems-local-seo' ) );
+		}
+
+		fwrite( $output, "ï»¿" );
+		fputcsv(
+			$output,
+			array( 'Priorita EMS', 'Segnale', 'Query', 'Landing page', 'Landing secondaria', 'Click', 'Impression', 'CTR %', 'Posizione', 'Motivo', 'Azione suggerita' ),
+			';'
+		);
+
+		foreach ( $analysis['items'] as $item ) {
+			fputcsv(
+				$output,
+				array(
+					$item['score'],
+					$item['label'],
+					$item['query'],
+					$item['page'],
+					$item['secondary_page'],
+					$item['clicks'],
+					$item['impressions'],
+					round( $item['ctr'] * 100, 2 ),
+					round( $item['position'], 2 ),
+					$item['reason'],
+					$item['action'],
+				),
+				';'
+			);
+		}
+
+		fclose( $output );
+		exit;
 	}
 
 	public function analyze( array $snapshot ): array {
@@ -381,11 +436,20 @@ final class EMS_Local_SEO_Opportunities {
 			<div class="ems-seo-panel">
 				<h2>Aggiorna i dati</h2>
 				<p>EMS legge due periodi consecutivi di 28 giorni, terminando 3 giorni prima di oggi per ridurre l'effetto dei dati Search Console ancora incompleti.</p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-					<input type="hidden" name="action" value="ems_local_seo_refresh_gsc">
-					<?php wp_nonce_field( 'ems_local_seo_refresh_gsc' ); ?>
-					<?php submit_button( empty( $snapshot ) ? 'Collega i dati Search Console' : 'Aggiorna dati Search Console', 'primary', 'submit', false ); ?>
-				</form>
+				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="ems_local_seo_refresh_gsc">
+						<?php wp_nonce_field( 'ems_local_seo_refresh_gsc' ); ?>
+						<?php submit_button( empty( $snapshot ) ? 'Collega i dati Search Console' : 'Aggiorna dati Search Console', 'primary', 'submit', false ); ?>
+					</form>
+					<?php if ( ! empty( $snapshot ) ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+							<input type="hidden" name="action" value="ems_local_seo_export_opportunities">
+							<?php wp_nonce_field( 'ems_local_seo_export_opportunities' ); ?>
+							<?php submit_button( 'Esporta opportunità CSV', 'secondary', 'submit', false ); ?>
+						</form>
+					<?php endif; ?>
+				</div>
 				<?php if ( ! empty( $snapshot['generated_at'] ) ) : ?>
 					<p><small>Ultimo snapshot EMS: <?php echo esc_html( (string) $snapshot['generated_at'] ); ?>.</small></p>
 				<?php endif; ?>
