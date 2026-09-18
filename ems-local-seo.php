@@ -3,7 +3,7 @@
  * Plugin Name: EMS Local SEO
  * Plugin URI: https://triesteincostruzione.com/
  * Description: SEO locale e tecnico per EDIL MILAN STEVIC: metadata, LocalBusiness/Service schema, audit interno e compatibilità con altri plugin SEO.
- * Version: 1.2.0
+ * Version: 1.4.0
  * Author: EDIL MILAN STEVIC
  * Author URI: https://triesteincostruzione.com/
  * Text Domain: ems-local-seo
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'EMS_LOCAL_SEO_VERSION', '1.2.0' );
+define( 'EMS_LOCAL_SEO_VERSION', '1.4.0' );
 define( 'EMS_LOCAL_SEO_FILE', __FILE__ );
 define( 'EMS_LOCAL_SEO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EMS_LOCAL_SEO_URL', plugin_dir_url( __FILE__ ) );
