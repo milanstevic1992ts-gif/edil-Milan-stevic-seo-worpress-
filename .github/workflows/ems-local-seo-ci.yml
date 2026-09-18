@@ -75,15 +75,6 @@ jobs:
   wordpress-smoke:
     runs-on: ubuntu-latest
     needs: lint-and-unit
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: wordpress_test
-        ports:
-          - 3306:3306
-
     steps:
       - name: Checkout with tags
         uses: actions/checkout@v4
@@ -97,17 +88,14 @@ jobs:
           extensions: mysqli, dom, mbstring
           coverage: none
 
-      - name: Wait for MySQL
+      - name: Start and configure MySQL
         run: |
-          for attempt in $(seq 1 30); do
-            if php -r '$m=@new mysqli("127.0.0.1","root","root","wordpress_test",3306); if ($m->connect_errno) { exit(1); } $m->close();' 2>/dev/null; then
-              echo "MySQL ready on attempt $attempt"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "MySQL did not become ready" >&2
-          exit 1
+          sudo systemctl start mysql.service
+          sudo mysql -e "CREATE DATABASE IF NOT EXISTS wordpress_test;"
+          sudo mysql -e "CREATE USER IF NOT EXISTS 'ems'@'127.0.0.1' IDENTIFIED BY 'ems_test_password';"
+          sudo mysql -e "GRANT ALL PRIVILEGES ON wordpress_test.* TO 'ems'@'127.0.0.1'; FLUSH PRIVILEGES;"
+          php -r '$m=new mysqli("127.0.0.1","ems","ems_test_password","wordpress_test",3306); if ($m->connect_errno) { fwrite(STDERR,$m->connect_error); exit(1); } echo "MySQL ready
+"; $m->close();'
 
       - name: Install WP-CLI
         run: |
@@ -121,7 +109,7 @@ jobs:
           rm -rf /tmp/wp
           mkdir -p /tmp/wp
           wp core download --path=/tmp/wp --allow-root
-          wp config create --dbname=wordpress_test --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --path=/tmp/wp --allow-root
+          wp config create --dbname=wordpress_test --dbuser=ems --dbpass=ems_test_password --dbhost=127.0.0.1:3306 --path=/tmp/wp --allow-root
           wp core install --url=http://ems.test --title='EMS Test' --admin_user=admin --admin_password='adminpass123!' --admin_email=test@example.com --skip-email --path=/tmp/wp --allow-root
 
       - name: Install The SEO Framework
