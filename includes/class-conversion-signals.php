@@ -16,6 +16,7 @@ final class EMS_Local_SEO_Conversion_Signals {
 		return array(
 			'whatsapp'         => 'WhatsApp',
 			'phone'            => 'Chiamata',
+			'email'            => 'Email',
 			'quiz'             => 'Quiz completato',
 			'form_success'     => 'Modulo inviato',
 			'qualified_contact'=> 'Contatto qualificato',
