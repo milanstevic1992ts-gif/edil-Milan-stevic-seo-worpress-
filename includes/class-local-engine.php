@@ -254,8 +254,9 @@ final class EMS_Local_SEO_Local_Engine {
 			'total'         => count( $posts ),
 			'services'      => $services,
 			'unclassified'  => $unclassified,
-			'data_state'    => $data_state,
-			'service_areas' => $this->service_areas(),
+			'data_state'      => $data_state,
+			'service_areas'   => $this->service_areas(),
+			'business_entity' => $this->business_entity_state(),
 		);
 
 		set_transient( self::TRANSIENT_KEY, $result, 6 * HOUR_IN_SECONDS );
@@ -504,6 +505,86 @@ final class EMS_Local_SEO_Local_Engine {
 		);
 	}
 
+	private function business_entity_state(): array {
+		$facts = array(
+			'business_name' => array(
+				'label' => 'Nome attività',
+				'value' => trim( (string) EMS_Local_SEO_Settings::get( 'business_name', '' ) ),
+				'required' => true,
+			),
+			'website' => array(
+				'label' => 'Sito',
+				'value' => trim( (string) EMS_Local_SEO_Settings::get( 'website', '' ) ),
+				'required' => true,
+			),
+			'locality' => array(
+				'label' => 'Località',
+				'value' => trim( (string) EMS_Local_SEO_Settings::get( 'locality', '' ) ),
+				'required' => true,
+			),
+			'service_areas' => array(
+				'label' => 'Area servita',
+				'value' => implode( ', ', $this->service_areas() ),
+				'required' => true,
+			),
+			'phone' => array(
+				'label' => 'Telefono pubblico',
+				'value' => trim( (string) EMS_Local_SEO_Settings::get( 'phone', '' ) ),
+				'required' => false,
+			),
+			'email' => array(
+				'label' => 'Email pubblica',
+				'value' => trim( (string) EMS_Local_SEO_Settings::get( 'email', '' ) ),
+				'required' => false,
+			),
+			'logo_url' => array(
+				'label' => 'Logo',
+				'value' => trim( (string) EMS_Local_SEO_Settings::get( 'logo_url', '' ) ),
+				'required' => false,
+			),
+			'google_business_url' => array(
+				'label' => 'Google Business Profile',
+				'value' => trim( (string) EMS_Local_SEO_Settings::get( 'google_business_url', '' ) ),
+				'required' => false,
+			),
+		);
+
+		$missing_required = array();
+		$configured = 0;
+
+		foreach ( $facts as $key => &$fact ) {
+			$fact['status'] = '' !== $fact['value'] ? 'configured' : ( $fact['required'] ? 'missing' : 'optional' );
+			if ( 'configured' === $fact['status'] ) {
+				$configured++;
+			}
+			if ( 'missing' === $fact['status'] ) {
+				$missing_required[] = $key;
+			}
+		}
+		unset( $fact );
+
+		$warnings = array();
+		$website_host = mb_strtolower( (string) wp_parse_url( (string) $facts['website']['value'], PHP_URL_HOST ) );
+		$home_host    = mb_strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
+
+		if ( '' !== $website_host && '' !== $home_host && $website_host !== $home_host ) {
+			$warnings[] = 'Il sito configurato nell’entità non coincide con il dominio WordPress corrente.';
+		}
+
+		if ( ! in_array( 'Trieste', $this->service_areas(), true ) ) {
+			$warnings[] = 'Trieste non compare tra le aree servite configurate.';
+		}
+
+		return array(
+			'facts'            => $facts,
+			'configured'       => $configured,
+			'total'            => count( $facts ),
+			'missing_required' => $missing_required,
+			'warnings'         => $warnings,
+			'note'             => 'EMS non completa automaticamente indirizzo, telefono, email o profili esterni.',
+		);
+	}
+
 	private function service_areas(): array {
 		$lines = preg_split( '/\r\n|\r|\n/', (string) EMS_Local_SEO_Settings::get( 'service_areas', 'Trieste' ) );
 		$lines = array_values( array_unique( array_filter( array_map( 'trim', (array) $lines ) ) ) );
@@ -575,6 +656,24 @@ final class EMS_Local_SEO_Local_Engine {
 						</div>
 					<?php endforeach; ?>
 				</div>
+			</div>
+
+			<?php $entity = $result['business_entity']; ?>
+			<div class="ems-seo-panel">
+				<h2>Entità aziendale centrale</h2>
+				<p><strong><?php echo esc_html( (string) $entity['configured'] ); ?>/<?php echo esc_html( (string) $entity['total'] ); ?></strong> campi configurati. <small><?php echo esc_html( $entity['note'] ); ?></small></p>
+				<div class="ems-seo-grid">
+					<?php foreach ( $entity['facts'] as $fact ) : ?>
+						<div class="ems-seo-card">
+							<span><?php echo esc_html( $fact['label'] ); ?></span>
+							<strong><?php echo 'configured' === $fact['status'] ? 'OK' : ( 'missing' === $fact['status'] ? 'MANCANTE' : '—' ); ?></strong>
+							<small><?php echo esc_html( '' !== $fact['value'] ? $fact['value'] : ( $fact['required'] ? 'necessario' : 'facoltativo' ) ); ?></small>
+						</div>
+					<?php endforeach; ?>
+				</div>
+				<?php if ( ! empty( $entity['warnings'] ) ) : ?>
+					<p><strong>Da verificare:</strong> <?php echo esc_html( implode( ' ', $entity['warnings'] ) ); ?></p>
+				<?php endif; ?>
 			</div>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
