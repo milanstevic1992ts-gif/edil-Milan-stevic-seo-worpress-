@@ -580,6 +580,20 @@ final class EMS_Local_SEO_Action_Center {
 
 			<div class="ems-seo-panel">
 				<p><strong>Fonti disponibili:</strong> <?php echo esc_html( (string) $result['data_sources'] ); ?>/<?php echo esc_html( (string) $result['total_sources'] ); ?>. <strong>Segnali commerciali:</strong> <?php echo ! empty( $result['commercial']['available'] ) ? esc_html( (string) array_sum( (array) $result['commercial']['events'] ) ) . ' osservati' : 'non ancora osservati'; ?>. <strong>Azioni candidate:</strong> <?php echo esc_html( (string) $result['all_count'] ); ?>. L’assenza di una fonte significa “non osservato”, non zero.</p>
+				<?php if ( ! empty( $result['commercial']['available'] ) ) : ?>
+					<p><small>
+						<?php
+						$labels = EMS_Local_SEO_Conversion_Signals::allowed_events();
+						$parts = array();
+						foreach ( (array) $result['commercial']['events'] as $event => $count ) {
+							if ( (int) $count > 0 ) {
+								$parts[] = ( $labels[ $event ] ?? $event ) . ': ' . (int) $count;
+							}
+						}
+						echo esc_html( implode( ' · ', $parts ) );
+						?>
+					</small></p>
+				<?php endif; ?>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="ems_local_seo_rebuild_actions">
 					<?php wp_nonce_field( 'ems_local_seo_rebuild_actions' ); ?>
