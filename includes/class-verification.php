@@ -89,6 +89,8 @@ final class EMS_Local_SEO_Verification {
 			'stale'        => false,
 			'stale_from'   => '',
 			'owner_hint'   => $this->compatibility->has_tsf() ? 'The SEO Framework attivo' : 'Nessun TSF rilevato',
+			'public_orphan_ready' => false,
+			'public_orphan_note'  => 'La verifica orphan via HTML pubblico sarà disponibile soltanto a scansione completa e senza risposte tronche o fallite.',
 		);
 
 		update_option( self::STATE_OPTION, $state, false );
@@ -157,11 +159,25 @@ final class EMS_Local_SEO_Verification {
 			$state['results'][ $post_id ] = $result;
 		}
 
+		$complete = $end >= $total;
 		$state['cursor']     = $end;
 		$state['updated_at'] = current_time( 'mysql' );
-		$state['issues']     = $this->build_issues( (array) $state['results'] );
 
-		if ( $end >= $total ) {
+		$orphan_readiness = $this->public_orphan_readiness(
+			(array) $state['results'],
+			$ids,
+			$complete
+		);
+
+		$state['public_orphan_ready'] = $orphan_readiness['ready'];
+		$state['public_orphan_note']  = $orphan_readiness['note'];
+		$state['issues'] = $this->build_issues(
+			(array) $state['results'],
+			$ids,
+			(bool) $orphan_readiness['ready']
+		);
+
+		if ( $complete ) {
 			$state['status']       = 'complete';
 			$state['completed_at'] = current_time( 'mysql' );
 		}
@@ -169,7 +185,7 @@ final class EMS_Local_SEO_Verification {
 		update_option( self::STATE_OPTION, $state, false );
 	}
 
-	private function build_issues( array $results ): array {
+	private function build_issues( array $results, array $queued_ids = array(), bool $include_public_orphans = false ): array {
 		$issues       = array();
 		$titles       = array();
 		$descriptions = array();
@@ -265,7 +281,140 @@ final class EMS_Local_SEO_Verification {
 			$this->duplicate_issues( $canonicals, 'duplicate_public_canonical', 'Più URL pubblici dichiarano lo stesso canonical.' )
 		);
 
+		if ( $include_public_orphans ) {
+			$issues = array_merge(
+				$issues,
+				$this->public_orphan_issues( $results, $queued_ids )
+			);
+		}
+
 		return $issues;
+	}
+
+	private function public_orphan_readiness( array $results, array $queued_ids, bool $complete ): array {
+		if ( ! $complete ) {
+			return array(
+				'ready' => false,
+				'note'  => 'Scansione incompleta: EMS non emette giudizi orphan dall’HTML pubblico.',
+			);
+		}
+
+		if ( count( $results ) !== count( $queued_ids ) ) {
+			return array(
+				'ready' => false,
+				'note'  => 'Copertura incompleta: il numero di risposte HTML non coincide con gli URL messi in coda.',
+			);
+		}
+
+		foreach ( $queued_ids as $post_id ) {
+			$result = $results[ $post_id ] ?? null;
+
+			if ( ! is_array( $result ) || ! empty( $result['error'] ) ) {
+				return array(
+					'ready' => false,
+					'note'  => 'Almeno una pagina non è stata letta correttamente: orphan pubblico non valutato.',
+				);
+			}
+
+			$status = (int) ( $result['status'] ?? 0 );
+			if ( $status < 200 || $status >= 400 ) {
+				return array(
+					'ready' => false,
+					'note'  => 'Almeno una pagina ha restituito uno stato HTTP non affidabile per una mappa completa dei link.',
+				);
+			}
+
+			if ( ! empty( $result['truncated'] ) ) {
+				return array(
+					'ready' => false,
+					'note'  => 'Almeno una risposta HTML è stata troncata: i link renderizzati potrebbero essere incompleti.',
+				);
+			}
+		}
+
+		return array(
+			'ready' => true,
+			'note'  => 'Orphan pubblico valutato sui link renderizzati dell’intero insieme di pagine scansionate.',
+		);
+	}
+
+	private function public_orphan_issues( array $results, array $queued_ids ): array {
+		$queued_ids = array_values( array_unique( array_map( 'intval', $queued_ids ) ) );
+		$inbound    = array_fill_keys( $queued_ids, 0 );
+
+		foreach ( $results as $source_id => $result ) {
+			if ( ! is_array( $result ) ) {
+				continue;
+			}
+
+			foreach ( (array) ( $result['links'] ?? array() ) as $href ) {
+				$target_id = $this->public_link_to_post_id( (string) $href );
+
+				if ( ! $target_id || $target_id === (int) $source_id || ! array_key_exists( $target_id, $inbound ) ) {
+					continue;
+				}
+
+				$inbound[ $target_id ]++;
+			}
+		}
+
+		$issues   = array();
+		$front_id = (int) get_option( 'page_on_front' );
+
+		foreach ( $inbound as $post_id => $count ) {
+			if ( $post_id === $front_id || $count > 0 ) {
+				continue;
+			}
+
+			$result = $results[ $post_id ] ?? array();
+			$label  = (string) ( $result['title_label'] ?? get_the_title( $post_id ) ?: '#' . $post_id );
+			$url    = (string) ( $result['url'] ?? get_permalink( $post_id ) );
+
+			$issues[] = $this->issue(
+				(int) $post_id,
+				$label,
+				$url,
+				'warning',
+				'public_orphan',
+				'Nessun link interno verso questa pagina è stato osservato nell’HTML pubblico renderizzato dell’intera scansione.'
+			);
+		}
+
+		return $issues;
+	}
+
+	private function public_link_to_post_id( string $href ): int {
+		$href = html_entity_decode( trim( $href ), ENT_QUOTES | ENT_HTML5 );
+
+		if ( '' === $href || str_starts_with( $href, '#' ) || str_starts_with( $href, 'mailto:' ) || str_starts_with( $href, 'tel:' ) || str_starts_with( $href, 'javascript:' ) ) {
+			return 0;
+		}
+
+		if ( str_starts_with( $href, '/' ) ) {
+			$href = home_url( $href );
+		}
+
+		if ( ! wp_http_validate_url( $href ) ) {
+			return 0;
+		}
+
+		$home_host = mb_strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
+		$link_host = mb_strtolower( (string) wp_parse_url( $href, PHP_URL_HOST ) );
+
+		if ( '' === $home_host || $home_host !== $link_host ) {
+			return 0;
+		}
+
+		$parts = wp_parse_url( $href );
+		if ( ! is_array( $parts ) ) {
+			return 0;
+		}
+
+		$scheme = isset( $parts['scheme'] ) ? (string) $parts['scheme'] : 'https';
+		$host   = (string) $parts['host'];
+		$path   = isset( $parts['path'] ) ? (string) $parts['path'] : '/';
+
+		return (int) url_to_postid( $scheme . '://' . $host . $path );
 	}
 
 	private function duplicate_issues( array $groups, string $code, string $message ): array {
@@ -405,6 +554,7 @@ final class EMS_Local_SEO_Verification {
 				<div class="ems-seo-panel">
 					<h2>Copertura dichiarata</h2>
 					<p>EMS ha letto l’HTML pubblico di <strong><?php echo esc_html( (string) $cursor ); ?></strong> contenuti sui <strong><?php echo esc_html( (string) $total ); ?></strong> messi in coda. Le pagine non ancora elaborate non vengono considerate “senza errori”.</p>
+					<p><strong>Orphan da HTML pubblico:</strong> <?php echo ! empty( $state['public_orphan_ready'] ) ? 'verificabile' : 'non ancora verificabile'; ?>. <small><?php echo esc_html( (string) ( $state['public_orphan_note'] ?? '' ) ); ?></small></p>
 				</div>
 
 				<div class="ems-seo-panel ems-seo-table-wrap">
