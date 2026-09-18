@@ -2,8 +2,14 @@ name: EMS Local SEO Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
+    paths:
+      - 'ems-local-seo.php'
+      - 'includes/**'
+      - 'assets/**'
+      - 'readme.txt'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -25,7 +31,32 @@ jobs:
       - name: PHP syntax check
         run: find . -path './.git' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Read plugin version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(sed -n 's/^ \* Version: //p' ems-local-seo.php | head -n1 | tr -d '\r')
+          if [ -z "$VERSION" ]; then
+            echo 'Plugin version not found' >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing release
+        id: release_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build installable ZIP
+        if: steps.release_check.outputs.exists != 'true'
         run: |
           rm -rf build
           mkdir -p build/ems-local-seo
@@ -39,12 +70,21 @@ jobs:
           zip -r ems-local-seo.zip ems-local-seo
           sha256sum ems-local-seo.zip > SHA256SUMS.txt
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release and version tag
+        if: steps.release_check.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          gh release create "$TAG" \
             build/ems-local-seo.zip \
             build/SHA256SUMS.txt \
-            --title "EMS Local SEO ${GITHUB_REF_NAME}" \
+            --target "$GITHUB_SHA" \
+            --title "EMS Local SEO $TAG" \
             --generate-notes
+
+      - name: Release already exists
+        if: steps.release_check.outputs.exists == 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: echo "Release $TAG already exists; nothing to publish."
