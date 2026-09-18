@@ -74,6 +74,7 @@ final class EMS_Local_SEO_Change_Journal {
 			'html_verification_completed',
 			'link_health_completed',
 			'local_engine_rebuilt',
+			'conversion_signal_observed',
 			'manual_note',
 		);
 
@@ -103,6 +104,7 @@ final class EMS_Local_SEO_Change_Journal {
 			'html_verification_completed'  => 'public_html',
 			'link_health_completed'        => 'link_health',
 			'local_engine_rebuilt'         => 'local_engine',
+			'conversion_signal_observed'   => 'conversion_signal',
 			'manual_note'                  => 'manual',
 		);
 
