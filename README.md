@@ -2,7 +2,7 @@
 
 Plugin WordPress proprietario per **EDIL MILAN STEVIC** e `triesteincostruzione.com`.
 
-Versione di sviluppo: **0.9.0**
+Versione stabile candidata: **1.0.0**
 
 ## Obiettivo
 SEO locale verticale per impresa edile: integrazione con The SEO Framework, dati strutturati locali, audit tecnico, link interni e Content Map.
@@ -19,7 +19,10 @@ SEO locale verticale per impresa edile: integrazione con The SEO Framework, dati
 - Content Map e rilevazione di possibili sovrapposizioni/cannibalizzazione;
 - Search Console via Site Kit senza secondo OAuth;
 - confronto 28 giorni vs periodo precedente;
-- Opportunity Engine con quick win, CTR debole, cali, crescita e cannibalizzazione query→landing.
+- Opportunity Engine con quick win, CTR debole, cali, crescita e cannibalizzazione query→landing;
+- Link Health manuale per redirect, 4xx/5xx ed errori interni;
+- modulo Lavori reali / Case Study con completezza immagini e ALT;
+- release GitHub automatica con ZIP installabile e SHA-256.
 
 ## Sicurezza
 EMS non modifica automaticamente i contenuti e non promette ranking. In modalità automatica evita di duplicare metadata già gestiti da un altro plugin SEO.
