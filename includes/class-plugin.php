@@ -47,9 +47,9 @@ final class EMS_Local_SEO_Plugin {
         $this->audit         = new EMS_Local_SEO_Audit( $this->compatibility );
         $this->effective_meta = new EMS_Local_SEO_Effective_Meta();
         $this->verification   = new EMS_Local_SEO_Verification( $this->effective_meta, $this->compatibility );
-        $this->links         = new EMS_Local_SEO_Links();
         $this->content_map   = new EMS_Local_SEO_Content_Map();
         $this->local_engine   = new EMS_Local_SEO_Local_Engine();
+        $this->links         = new EMS_Local_SEO_Links( $this->local_engine );
         $this->search_console = new EMS_Local_SEO_Search_Console();
         $this->opportunities  = new EMS_Local_SEO_Opportunities( $this->search_console );
         $this->link_health    = new EMS_Local_SEO_Link_Health();
