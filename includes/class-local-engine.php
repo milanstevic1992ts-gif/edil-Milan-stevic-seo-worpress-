@@ -169,6 +169,7 @@ final class EMS_Local_SEO_Local_Engine {
 				'primary_candidate' => null,
 				'manual_primary'    => null,
 				'coverage'          => 'missing',
+				'warnings'          => array(),
 			);
 		}
 
@@ -223,6 +224,13 @@ final class EMS_Local_SEO_Local_Engine {
 
 			$service['coverage'] = $this->coverage_state( $service );
 			$service['support_count'] = max( 0, count( $service['items'] ) - ( null !== $service['primary_candidate'] ? 1 : 0 ) );
+
+			if ( (int) ( $service['roles']['service'] ?? 0 ) > 1 ) {
+				$service['warnings'][] = 'Più pagine risultano “servizio principale”: verificare intento e scegliere una pagina di riferimento.';
+			}
+			if ( null === $service['primary_candidate'] && ! empty( $service['items'] ) ) {
+				$service['warnings'][] = 'Esistono contenuti sul tema ma non emerge ancora una pagina principale affidabile.';
+			}
 		}
 		unset( $service );
 
@@ -559,7 +567,7 @@ final class EMS_Local_SEO_Local_Engine {
 
 			<div class="ems-seo-panel ems-seo-table-wrap">
 				<table class="widefat striped">
-					<thead><tr><th>Priorità</th><th>Servizio</th><th>Pagina principale candidata</th><th>Supporto</th><th>Copertura</th><th>Affidabilità classificazione</th></tr></thead>
+					<thead><tr><th>Priorità</th><th>Servizio</th><th>Pagina principale candidata</th><th>Supporto</th><th>Copertura</th><th>Affidabilità classificazione</th><th>Nota</th></tr></thead>
 					<tbody>
 					<?php foreach ( $result['services'] as $service ) : ?>
 						<?php $primary = $service['primary_candidate']; ?>
@@ -583,6 +591,13 @@ final class EMS_Local_SEO_Local_Engine {
 							</td>
 							<td><?php echo esc_html( $service['coverage'] ); ?></td>
 							<td><?php echo $primary ? esc_html( (string) $primary['confidence'] . '%' ) : '—'; ?><br><small>metrica interna, non ranking Google</small></td>
+							<td>
+								<?php if ( ! empty( $service['warnings'] ) ) : ?>
+									<?php echo esc_html( implode( ' ', $service['warnings'] ) ); ?>
+								<?php else : ?>
+									<small>Area servita: <?php echo esc_html( implode( ', ', $result['service_areas'] ) ); ?></small>
+								<?php endif; ?>
+							</td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
