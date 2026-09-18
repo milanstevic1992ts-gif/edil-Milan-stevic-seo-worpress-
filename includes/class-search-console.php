@@ -8,14 +8,62 @@ final class EMS_Local_SEO_Search_Console {
 	public const SNAPSHOT_OPTION = 'ems_local_seo_gsc_snapshot_v1';
 	public const ERROR_OPTION    = 'ems_local_seo_gsc_last_error_v1';
 	public const HISTORY_OPTION  = 'ems_local_seo_gsc_history_v1';
+	public const USER_OPTION     = 'ems_local_seo_gsc_user';
+	public const CRON_HOOK       = 'ems_local_seo_gsc_daily';
 	public const ROUTE           = '/google-site-kit/v1/modules/search-console/data/searchanalytics';
 
-	private const RANGE_DAYS = 28;
+	private const RANGE_DAYS    = 28;
 	private const DATA_LAG_DAYS = 3;
-	private const MAX_ROWS = 2500;
+	private const MAX_ROWS      = 2500;
+	private const DAILY_DAYS    = 182;
 
 	public function hooks(): void {
 		add_action( 'admin_post_ems_local_seo_refresh_gsc', array( $this, 'handle_refresh' ) );
+		add_action( self::CRON_HOOK, array( $this, 'cron_refresh' ) );
+		add_action( 'init', array( $this, 'maybe_schedule' ) );
+	}
+
+	public function maybe_schedule(): void {
+		$enabled = (bool) EMS_Local_SEO_Settings::get( 'gsc_auto_refresh', 0 );
+		$user_id = (int) get_option( self::USER_OPTION, 0 );
+		$next    = wp_next_scheduled( self::CRON_HOOK );
+
+		if ( $enabled && $user_id > 0 && ! $next ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::CRON_HOOK );
+		} elseif ( ( ! $enabled || $user_id <= 0 ) && $next ) {
+			wp_unschedule_hook( self::CRON_HOOK );
+		}
+	}
+
+	public function cron_refresh(): void {
+		$user_id = (int) get_option( self::USER_OPTION, 0 );
+		if ( $user_id <= 0 || ! user_can( $user_id, 'manage_options' ) ) {
+			return;
+		}
+
+		$previous_user = get_current_user_id();
+		wp_set_current_user( $user_id );
+
+		$result = $this->refresh();
+		if ( is_wp_error( $result ) ) {
+			$this->store_error( $result );
+		}
+
+		wp_set_current_user( $previous_user );
+	}
+
+	public function is_stale( int $max_age_hours = 36 ): bool {
+		$snapshot = $this->get_snapshot();
+		if ( empty( $snapshot['generated_gmt'] ) ) {
+			return true;
+		}
+
+		$timestamp = strtotime( (string) $snapshot['generated_gmt'] );
+		if ( false === $timestamp ) {
+			return true;
+		}
+
+		return ( time() - $timestamp ) > max( 1, $max_age_hours ) * HOUR_IN_SECONDS;
 	}
 
 	public function handle_refresh(): void {
@@ -25,13 +73,26 @@ final class EMS_Local_SEO_Search_Console {
 
 		check_admin_referer( 'ems_local_seo_refresh_gsc' );
 
+		update_option( self::USER_OPTION, get_current_user_id(), false );
+
 		$result = $this->refresh();
 		$status = is_wp_error( $result ) ? 'error' : 'ok';
+
+		$allowed_pages = array(
+			'ems-local-seo',
+			'ems-local-seo-opportunities',
+			'ems-local-seo-settings',
+			'ems-local-seo-dashboard',
+		);
+		$back = isset( $_REQUEST['ems_back'] ) ? sanitize_key( wp_unslash( $_REQUEST['ems_back'] ) ) : 'ems-local-seo-opportunities';
+		if ( ! in_array( $back, $allowed_pages, true ) ) {
+			$back = 'ems-local-seo-opportunities';
+		}
 
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page'    => 'ems-local-seo-opportunities',
+					'page'    => $back,
 					'ems_gsc' => $status,
 				),
 				admin_url( 'admin.php' )
@@ -94,16 +155,38 @@ final class EMS_Local_SEO_Search_Console {
 			return $this->store_error( $previous );
 		}
 
+		$daily_end = $ranges['current']['end'];
+		try {
+			$daily_start = ( new DateTimeImmutable( $daily_end ) )
+				->modify( '-' . ( self::DAILY_DAYS - 1 ) . ' days' )
+				->format( 'Y-m-d' );
+		} catch ( Exception $e ) {
+			$daily_start = $ranges['previous']['start'];
+		}
+
+		$daily = $this->fetch_report( $daily_start, $daily_end, array( 'date' ) );
+		if ( is_wp_error( $daily ) ) {
+			return $this->store_error( $daily );
+		}
+
+		$daily_rows = (array) ( $daily['rows'] ?? array() );
+		usort(
+			$daily_rows,
+			static fn( array $a, array $b ): int => strcmp( (string) ( $a['date'] ?? '' ), (string) ( $b['date'] ?? '' ) )
+		);
+		$daily['rows'] = $daily_rows;
+
 		$snapshot = array(
-			'generated_at' => current_time( 'mysql' ),
+			'generated_at'  => current_time( 'mysql' ),
 			'generated_gmt' => gmdate( 'c' ),
-			'source'       => 'site-kit-search-console',
-			'route'        => self::ROUTE,
-			'range_days'   => self::RANGE_DAYS,
-			'data_lag_days'=> self::DATA_LAG_DAYS,
-			'ranges'       => $ranges,
-			'current'      => $current,
-			'previous'     => $previous,
+			'source'        => 'site-kit-search-console',
+			'route'         => self::ROUTE,
+			'range_days'    => self::RANGE_DAYS,
+			'data_lag_days' => self::DATA_LAG_DAYS,
+			'ranges'        => $ranges,
+			'current'       => $current,
+			'previous'      => $previous,
+			'daily'         => $daily,
 		);
 
 		update_option( self::SNAPSHOT_OPTION, $snapshot, false );
@@ -237,7 +320,14 @@ final class EMS_Local_SEO_Search_Console {
 				$item[ $dimension ] = isset( $keys[ $index ] ) ? (string) $keys[ $index ] : '';
 			}
 
-			if ( '' === (string) ( $item['query'] ?? '' ) && '' === (string) ( $item['page'] ?? '' ) ) {
+			$has_dimension = false;
+			foreach ( $dimensions as $dimension ) {
+				if ( '' !== (string) ( $item[ $dimension ] ?? '' ) ) {
+					$has_dimension = true;
+					break;
+				}
+			}
+			if ( ! $has_dimension ) {
 				continue;
 			}
 
@@ -293,7 +383,7 @@ final class EMS_Local_SEO_Search_Console {
 			)
 		);
 
-		update_option( self::HISTORY_OPTION, array_slice( $history, 0, 12 ), false );
+		update_option( self::HISTORY_OPTION, array_slice( $history, 0, 26 ), false );
 	}
 
 	private function compact_summary( array $rows ): array {
