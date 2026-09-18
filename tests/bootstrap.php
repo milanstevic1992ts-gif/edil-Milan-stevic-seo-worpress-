@@ -32,6 +32,46 @@ if ( ! function_exists( 'sanitize_key' ) ) {
 	}
 }
 
+if ( ! function_exists( 'sanitize_text_field' ) ) {
+	function sanitize_text_field( $value ) {
+		return trim( strip_tags( (string) $value ) );
+	}
+}
+
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+	function sanitize_textarea_field( $value ) {
+		return trim( strip_tags( (string) $value ) );
+	}
+}
+
+if ( ! function_exists( 'sanitize_email' ) ) {
+	function sanitize_email( $value ) {
+		return filter_var( (string) $value, FILTER_SANITIZE_EMAIL );
+	}
+}
+
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	function esc_url_raw( $value ) {
+		return filter_var( (string) $value, FILTER_SANITIZE_URL );
+	}
+}
+
+if ( ! function_exists( 'home_url' ) ) {
+	function home_url( $path = '/' ) {
+		return 'https://triesteincostruzione.com' . ( '/' === $path ? '/' : '/' . ltrim( (string) $path, '/' ) );
+	}
+}
+
+if ( ! function_exists( 'wp_parse_args' ) ) {
+	function wp_parse_args( $args, $defaults = array() ) {
+		return array_merge( (array) $defaults, (array) $args );
+	}
+}
+
+if ( ! class_exists( 'EMS_Local_SEO_Compatibility' ) ) {
+	class EMS_Local_SEO_Compatibility {}
+}
+
 if ( ! function_exists( 'current_time' ) ) {
 	function current_time( $type ) {
 		return 'Y-m-d' === $type ? '2026-09-18' : '2026-09-18 09:30:00';
@@ -171,6 +211,7 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 	}
 }
 
+require_once dirname( __DIR__ ) . '/includes/class-settings.php';
 require_once dirname( __DIR__ ) . '/includes/class-search-console.php';
 require_once dirname( __DIR__ ) . '/includes/class-opportunities.php';
 require_once dirname( __DIR__ ) . '/includes/class-effective-meta.php';
