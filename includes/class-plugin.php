@@ -17,6 +17,7 @@ final class EMS_Local_SEO_Plugin {
     public EMS_Local_SEO_Verification $verification;
     public EMS_Local_SEO_Links $links;
     public EMS_Local_SEO_Content_Map $content_map;
+    public EMS_Local_SEO_Local_Engine $local_engine;
     public EMS_Local_SEO_Search_Console $search_console;
     public EMS_Local_SEO_Opportunities $opportunities;
     public EMS_Local_SEO_Link_Health $link_health;
@@ -46,8 +47,9 @@ final class EMS_Local_SEO_Plugin {
         $this->audit         = new EMS_Local_SEO_Audit( $this->compatibility );
         $this->effective_meta = new EMS_Local_SEO_Effective_Meta();
         $this->verification   = new EMS_Local_SEO_Verification( $this->effective_meta, $this->compatibility );
-        $this->links         = new EMS_Local_SEO_Links();
         $this->content_map   = new EMS_Local_SEO_Content_Map();
+        $this->local_engine   = new EMS_Local_SEO_Local_Engine();
+        $this->links         = new EMS_Local_SEO_Links( $this->local_engine );
         $this->search_console = new EMS_Local_SEO_Search_Console();
         $this->opportunities  = new EMS_Local_SEO_Opportunities( $this->search_console );
         $this->link_health    = new EMS_Local_SEO_Link_Health();
@@ -61,6 +63,7 @@ final class EMS_Local_SEO_Plugin {
         $this->verification->hooks();
         $this->links->hooks();
         $this->content_map->hooks();
+        $this->local_engine->hooks();
         $this->search_console->hooks();
         $this->opportunities->hooks();
         $this->link_health->hooks();

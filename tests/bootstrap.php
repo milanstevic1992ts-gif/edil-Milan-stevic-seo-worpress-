@@ -5,6 +5,56 @@ define( 'EMS_LOCAL_SEO_VERSION', '1.0.1-test' );
 
 $GLOBALS['ems_test_can_manage'] = true;
 $GLOBALS['ems_test_nonce_calls'] = array();
+$GLOBALS['ems_test_meta'] = array();
+
+if ( ! class_exists( 'WP_Post' ) ) {
+	class WP_Post {
+		public int $ID = 0;
+		public string $post_type = 'page';
+		public string $post_name = '';
+		public string $post_excerpt = '';
+		public string $post_content = '';
+		public string $post_title = '';
+
+		public function __construct( array $data = array() ) {
+			foreach ( $data as $key => $value ) {
+				$this->{$key} = $value;
+			}
+		}
+	}
+}
+
+if ( ! function_exists( 'get_post_meta' ) ) {
+	function get_post_meta( $post_id, $key = '', $single = false ) {
+		return $GLOBALS['ems_test_meta'][ $post_id ][ $key ] ?? '';
+	}
+}
+
+if ( ! function_exists( 'get_the_title' ) ) {
+	function get_the_title( $post = 0 ) {
+		return $post instanceof WP_Post ? $post->post_title : '';
+	}
+}
+
+if ( ! function_exists( 'get_permalink' ) ) {
+	function get_permalink( $post = 0 ) {
+		$id = $post instanceof WP_Post ? $post->ID : (int) $post;
+		return 'https://triesteincostruzione.com/test-' . $id . '/';
+	}
+}
+
+if ( ! function_exists( 'strip_shortcodes' ) ) {
+	function strip_shortcodes( $content ) {
+		return $content;
+	}
+}
+
+if ( ! function_exists( 'remove_accents' ) ) {
+	function remove_accents( $text ) {
+		$map = array( 'à'=>'a','è'=>'e','é'=>'e','ì'=>'i','ò'=>'o','ù'=>'u','À'=>'A','È'=>'E','É'=>'E','Ì'=>'I','Ò'=>'O','Ù'=>'U' );
+		return strtr( $text, $map );
+	}
+}
 
 if ( ! function_exists( 'url_to_postid' ) ) {
 	function url_to_postid( $url ) {
@@ -92,3 +142,4 @@ require_once dirname( __DIR__ ) . '/includes/class-search-console.php';
 require_once dirname( __DIR__ ) . '/includes/class-opportunities.php';
 require_once dirname( __DIR__ ) . '/includes/class-effective-meta.php';
 require_once dirname( __DIR__ ) . '/includes/class-link-health.php';
+require_once dirname( __DIR__ ) . '/includes/class-local-engine.php';

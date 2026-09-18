@@ -16,6 +16,8 @@ final class EMS_Local_SEO_Meta {
         '_ems_seo_primary_query' => 'string',
         '_ems_seo_schema_type'   => 'string',
         '_ems_seo_service_name'  => 'string',
+        '_ems_local_service_key'  => 'string',
+        '_ems_local_role'         => 'string',
     );
 
     public function __construct( EMS_Local_SEO_Compatibility $compatibility ) {
@@ -91,6 +93,8 @@ final class EMS_Local_SEO_Meta {
         $service     = (string) get_post_meta( $post->ID, '_ems_seo_service_name', true );
         $noindex     = (bool) get_post_meta( $post->ID, '_ems_seo_noindex', true );
         $nofollow    = (bool) get_post_meta( $post->ID, '_ems_seo_nofollow', true );
+        $local_service = (string) get_post_meta( $post->ID, '_ems_local_service_key', true );
+        $local_role    = (string) get_post_meta( $post->ID, '_ems_local_role', true );
         ?>
         <div class="ems-seo-metabox">
             <?php if ( $this->compatibility->has_external_seo_plugin() ) : ?>
@@ -109,6 +113,28 @@ final class EMS_Local_SEO_Meta {
                     </select>
                 </label>
                 <label class="ems-seo-field"><span>Nome servizio</span><input type="text" name="ems_seo_service_name" value="<?php echo esc_attr( $service ); ?>" placeholder="es. Ristrutturazione bagno"></label>
+            </div>
+            <div class="ems-seo-panel" style="margin-top:14px">
+                <h3>Architettura locale EMS</h3>
+                <p><small>Facoltativo. Se lasci su Automatico, EMS deduce servizio e ruolo dai segnali disponibili. Una scelta manuale ha priorità sull'euristica.</small></p>
+                <div class="ems-seo-two-col">
+                    <label class="ems-seo-field"><span>Servizio locale</span>
+                        <select name="ems_local_service_key">
+                            <option value="">Automatico</option>
+                            <?php foreach ( EMS_Local_SEO_Local_Engine::service_catalog() as $value => $definition ) : ?>
+                                <option value="<?php echo esc_attr( $value ); ?>" <?php selected( $local_service, $value ); ?>><?php echo esc_html( $definition['label'] ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label class="ems-seo-field"><span>Ruolo del contenuto</span>
+                        <select name="ems_local_role">
+                            <option value="">Automatico</option>
+                            <?php foreach ( EMS_Local_SEO_Local_Engine::role_catalog() as $value => $label ) : ?>
+                                <option value="<?php echo esc_attr( $value ); ?>" <?php selected( $local_role, $value ); ?>><?php echo esc_html( $label ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                </div>
             </div>
             <div class="ems-seo-inline-checks">
                 <label><input type="checkbox" name="ems_seo_noindex" value="1" <?php checked( $noindex ); ?>> noindex</label>
@@ -136,6 +162,8 @@ final class EMS_Local_SEO_Meta {
             '_ems_seo_primary_query' => array( 'field' => 'ems_seo_primary_query', 'sanitize' => 'sanitize_text_field' ),
             '_ems_seo_schema_type'   => array( 'field' => 'ems_seo_schema_type', 'sanitize' => 'sanitize_text_field' ),
             '_ems_seo_service_name'  => array( 'field' => 'ems_seo_service_name', 'sanitize' => 'sanitize_text_field' ),
+            '_ems_local_service_key'  => array( 'field' => 'ems_local_service_key', 'sanitize' => 'sanitize_key' ),
+            '_ems_local_role'         => array( 'field' => 'ems_local_role', 'sanitize' => 'sanitize_key' ),
         );
 
         foreach ( $map as $meta_key => $spec ) {
@@ -151,6 +179,9 @@ final class EMS_Local_SEO_Meta {
         update_post_meta( $post_id, '_ems_seo_noindex', ! empty( $_POST['ems_seo_noindex'] ) ? 1 : 0 );
         update_post_meta( $post_id, '_ems_seo_nofollow', ! empty( $_POST['ems_seo_nofollow'] ) ? 1 : 0 );
         delete_transient( EMS_Local_SEO_Audit::TRANSIENT_KEY );
+        delete_transient( EMS_Local_SEO_Local_Engine::TRANSIENT_KEY );
+        delete_transient( EMS_Local_SEO_Content_Map::TRANSIENT_KEY );
+        delete_transient( EMS_Local_SEO_Links::TRANSIENT_KEY );
     }
 
     public function filter_title( string $title ): string {

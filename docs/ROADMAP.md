@@ -78,14 +78,31 @@ Riferimento: `docs/BASELINE-2026-09-18.md`.
 - Prima verifica live/staging quando disponibile.
 
 ## Fase 2 — v1.1: motore locale e architettura pagine
-**Priorità P1. Non iniziare prima della stabilità v1.0.1.**
+**Priorità P1. Stato: in sviluppo sul branch `feature/v1.1-local-engine`. Può partire senza storico reale.**
 
-- Content Map: servizio, intento, area servita, pagina principale, guide, quiz e cantieri.
-- Scheda aziendale centrale coerente e verificata.
-- Identificatori schema coerenti tra azienda, servizi e pagine.
-- Suggerimenti link contestuali con testo e punto di inserimento.
-- Sovrapposizioni di intento senza etichettare automaticamente ogni caso come cannibalizzazione.
-- Blocco della generazione massiva di pagine territoriali quasi identiche.
+### Implementato
+- Motore locale adattivo con catalogo servizi e intenti Trieste P1/P2.
+- Content Map operativa: servizio → intenti → area servita → pagina principale candidata → guide → quiz → lavori reali.
+- Ruoli contenuto automatici con override manuale facoltativo.
+- Dato manuale prioritario; euristica usata come suggerimento, non come fatto.
+- Stato dati progressivo: WordPress, mapping manuale, HTML pubblico, Search Console e lavori reali.
+- Storico compatto dell'architettura, senza copie dei testi.
+- Raccolta progressiva durante il normale uso admin quando la cache è stata invalidata.
+- Suggerimenti link contestuali con anchor e punto di inserimento.
+- Collegamenti supporto → pagina servizio e servizio → guide/lavori/quiz prima della semplice affinità semantica.
+- Sovrapposizioni di intento segnalate senza etichettarle automaticamente come cannibalizzazione.
+- Service schema attivato da classificazione esplicita, non da semplice matching euristico.
+- Area predefinita limitata a Trieste; nessun generatore di pagine territoriali massivo.
+
+### Dati che EMS raccoglierà nel tempo
+- snapshot Search Console solo quando il contesto Site Kit autorizzato viene aggiornato;
+- completamento scansione HTML pubblico;
+- lavori reali marcati come case study;
+- classificazioni manuali opzionali;
+- evoluzione della copertura per servizio.
+
+### Regola cold-start
+La mancanza di Search Console, case study o altre fonti non blocca il motore. Il segnale viene marcato come assente e il livello dati resta `iniziale` o `in apprendimento`; non viene mai convertito in zero.
 
 ## Fase 3 — v1.2: opportunità commerciali e contatti
 **Priorità P1.**
