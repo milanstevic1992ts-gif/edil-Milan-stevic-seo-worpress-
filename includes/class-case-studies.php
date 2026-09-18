@@ -118,7 +118,9 @@ final class EMS_Local_SEO_Case_Studies {
 		}
 
 		delete_transient( EMS_Local_SEO_Content_Map::TRANSIENT_KEY );
+		delete_transient( EMS_Local_SEO_Local_Engine::TRANSIENT_KEY );
 		delete_transient( EMS_Local_SEO_Links::TRANSIENT_KEY );
+		do_action( 'ems_local_seo_observed_change', 'case_study_updated', array( 'post_id' => $post_id ) );
 	}
 
 	public function register_page(): void {
