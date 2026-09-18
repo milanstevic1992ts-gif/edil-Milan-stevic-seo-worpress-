@@ -36,6 +36,7 @@ require_once EMS_LOCAL_SEO_DIR . 'includes/class-opportunities.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-link-health.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-case-studies.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-change-journal.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-conversion-signals.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-action-center.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-plugin.php';
 
