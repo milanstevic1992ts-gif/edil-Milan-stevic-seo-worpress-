@@ -83,11 +83,6 @@ jobs:
           MYSQL_DATABASE: wordpress_test
         ports:
           - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
 
     steps:
       - name: Checkout with tags
@@ -101,6 +96,18 @@ jobs:
           php-version: '8.2'
           extensions: mysqli, dom, mbstring
           coverage: none
+
+      - name: Wait for MySQL
+        run: |
+          for attempt in $(seq 1 30); do
+            if php -r '$m=@new mysqli("127.0.0.1","root","root","wordpress_test",3306); if ($m->connect_errno) { exit(1); } $m->close();' 2>/dev/null; then
+              echo "MySQL ready on attempt $attempt"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MySQL did not become ready" >&2
+          exit 1
 
       - name: Install WP-CLI
         run: |
