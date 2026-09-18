@@ -511,11 +511,14 @@ final class EMS_Local_SEO_Local_Engine {
 		return $lines;
 	}
 
-	private function store_history( array $result ): void {
+	public function get_history(): array {
 		$history = get_option( self::HISTORY_OPTION, array() );
-		if ( ! is_array( $history ) ) {
-			$history = array();
-		}
+
+		return is_array( $history ) ? $history : array();
+	}
+
+	private function store_history( array $result ): void {
+		$history = $this->get_history();
 
 		$fingerprint = array();
 		foreach ( $result['services'] as $key => $service ) {
@@ -547,8 +550,9 @@ final class EMS_Local_SEO_Local_Engine {
 			return;
 		}
 
-		$result = $this->build();
-		$state  = $result['data_state'];
+		$result  = $this->build();
+		$state   = $result['data_state'];
+		$history = array_slice( $this->get_history(), 0, 6 );
 		?>
 		<div class="wrap ems-seo-wrap">
 			<div class="ems-seo-hero">
@@ -624,6 +628,40 @@ final class EMS_Local_SEO_Local_Engine {
 					<p><?php echo esc_html( (string) count( $result['unclassified'] ) ); ?> contenuti non hanno ancora abbastanza segnali. Restano fuori dalle decisioni forti invece di essere forzati in una categoria sbagliata.</p>
 				</div>
 			<?php endif; ?>
+
+			<div class="ems-seo-panel ems-seo-table-wrap">
+				<h2 style="padding:0 20px">Memoria del motore</h2>
+				<p style="padding:0 20px">Snapshot compatti dell’architettura. Nessuna copia dei testi delle pagine.</p>
+				<table class="widefat striped">
+					<thead><tr><th>Data</th><th>Stato dati</th><th>Fonti</th><th>Cambiamenti sintetici</th></tr></thead>
+					<tbody>
+					<?php if ( empty( $history ) ) : ?>
+						<tr><td colspan="4">La memoria inizierà a popolarsi con le prossime osservazioni.</td></tr>
+					<?php else : ?>
+						<?php foreach ( $history as $entry ) : ?>
+							<?php
+							$strong = 0;
+							$missing = 0;
+							foreach ( (array) ( $entry['services'] ?? array() ) as $snapshot_service ) {
+								if ( 'strong' === ( $snapshot_service['coverage'] ?? '' ) ) {
+									$strong++;
+								}
+								if ( 'missing' === ( $snapshot_service['coverage'] ?? '' ) ) {
+									$missing++;
+								}
+							}
+							?>
+							<tr>
+								<td><?php echo esc_html( (string) ( $entry['generated_at'] ?? '' ) ); ?></td>
+								<td><?php echo esc_html( (string) ( $entry['data_level'] ?? 'iniziale' ) ); ?></td>
+								<td><?php echo esc_html( (string) ( $entry['signals'] ?? 0 ) ); ?>/5</td>
+								<td><?php echo esc_html( $strong . ' servizi forti · ' . $missing . ' mancanti' ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					<?php endif; ?>
+					</tbody>
+				</table>
+			</div>
 		</div>
 		<?php
 	}
