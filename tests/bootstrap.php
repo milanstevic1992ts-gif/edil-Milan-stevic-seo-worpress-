@@ -179,3 +179,6 @@ require_once dirname( __DIR__ ) . '/includes/class-local-engine.php';
 require_once dirname( __DIR__ ) . '/includes/class-change-journal.php';
 require_once dirname( __DIR__ ) . '/includes/class-conversion-signals.php';
 require_once dirname( __DIR__ ) . '/includes/class-action-center.php';
+require_once dirname( __DIR__ ) . '/includes/class-forecast.php';
+require_once dirname( __DIR__ ) . '/includes/class-schema.php';
+require_once dirname( __DIR__ ) . '/includes/class-indexnow.php';
