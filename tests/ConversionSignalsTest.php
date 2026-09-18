@@ -40,7 +40,7 @@ final class ConversionSignalsTest extends TestCase {
 		$this->assertSame( 1, $data['2026-09-18']['services']['bagno']['whatsapp'] );
 		$this->assertSame( 1, $data['2026-09-18']['pages']['77']['whatsapp'] );
 
-		$serialized = wp_json_encode( $data );
+		$serialized = json_encode( $data );
 		$this->assertStringNotContainsString( 'do-not-store', $serialized );
 		$this->assertStringNotContainsString( 'private text', $serialized );
 		$this->assertStringNotContainsString( '127.0.0.1', $serialized );
