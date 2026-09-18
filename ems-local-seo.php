@@ -35,6 +35,8 @@ require_once EMS_LOCAL_SEO_DIR . 'includes/class-search-console.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-opportunities.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-link-health.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-case-studies.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-change-journal.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-action-center.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-plugin.php';
 
 register_activation_hook( __FILE__, array( 'EMS_Local_SEO_Plugin', 'activate' ) );
