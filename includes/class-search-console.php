@@ -109,6 +109,7 @@ final class EMS_Local_SEO_Search_Console {
 		update_option( self::SNAPSHOT_OPTION, $snapshot, false );
 		$this->store_history_entry( $snapshot );
 		delete_option( self::ERROR_OPTION );
+		do_action( 'ems_local_seo_observed_change', 'gsc_refreshed', array( 'source' => 'search_console' ) );
 
 		return $snapshot;
 	}
