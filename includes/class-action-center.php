@@ -14,6 +14,7 @@ final class EMS_Local_SEO_Action_Center {
 	private EMS_Local_SEO_Opportunities $opportunities;
 	private EMS_Local_SEO_Links $links;
 	private EMS_Local_SEO_Change_Journal $journal;
+	private EMS_Local_SEO_Conversion_Signals $conversion_signals;
 
 	public function __construct(
 		EMS_Local_SEO_Local_Engine $local_engine,
@@ -22,7 +23,8 @@ final class EMS_Local_SEO_Action_Center {
 		EMS_Local_SEO_Search_Console $search_console,
 		EMS_Local_SEO_Opportunities $opportunities,
 		EMS_Local_SEO_Links $links,
-		EMS_Local_SEO_Change_Journal $journal
+		EMS_Local_SEO_Change_Journal $journal,
+		EMS_Local_SEO_Conversion_Signals $conversion_signals
 	) {
 		$this->local_engine   = $local_engine;
 		$this->verification   = $verification;
@@ -31,6 +33,7 @@ final class EMS_Local_SEO_Action_Center {
 		$this->opportunities  = $opportunities;
 		$this->links          = $links;
 		$this->journal        = $journal;
+		$this->conversion_signals = $conversion_signals;
 	}
 
 	public function hooks(): void {
@@ -82,6 +85,7 @@ final class EMS_Local_SEO_Action_Center {
 		$link_result = $this->links->get_suggestions();
 		$snapshot    = $this->search_console->get_snapshot();
 		$gsc         = ! empty( $snapshot ) ? $this->opportunities->analyze( $snapshot ) : array();
+		$commercial  = $this->conversion_signals->summary( 28 );
 
 		$context = array(
 			'local'        => $local,
@@ -104,8 +108,9 @@ final class EMS_Local_SEO_Action_Center {
 		$result   = array(
 			'generated_at' => current_time( 'mysql' ),
 			'data_level'   => (string) ( $local['data_state']['level'] ?? 'iniziale' ),
-			'data_sources' => (int) ( $local['data_state']['available'] ?? 0 ),
-			'total_sources'=> (int) ( $local['data_state']['total'] ?? 5 ),
+			'data_sources' => (int) ( $local['data_state']['available'] ?? 0 ) + ( ! empty( $commercial['available'] ) ? 1 : 0 ),
+			'total_sources'=> (int) ( $local['data_state']['total'] ?? 5 ) + 1,
+			'commercial'   => $commercial,
 			'top'          => array_slice( $compiled, 0, 5 ),
 			'all_count'    => count( $compiled ),
 			'journal'      => $this->journal->recent( 12 ),
@@ -574,7 +579,7 @@ final class EMS_Local_SEO_Action_Center {
 			</div>
 
 			<div class="ems-seo-panel">
-				<p><strong>Fonti disponibili:</strong> <?php echo esc_html( (string) $result['data_sources'] ); ?>/<?php echo esc_html( (string) $result['total_sources'] ); ?>. <strong>Azioni candidate:</strong> <?php echo esc_html( (string) $result['all_count'] ); ?>. L’assenza di una fonte significa “non osservato”, non zero.</p>
+				<p><strong>Fonti disponibili:</strong> <?php echo esc_html( (string) $result['data_sources'] ); ?>/<?php echo esc_html( (string) $result['total_sources'] ); ?>. <strong>Segnali commerciali:</strong> <?php echo ! empty( $result['commercial']['available'] ) ? esc_html( (string) array_sum( (array) $result['commercial']['events'] ) ) . ' osservati' : 'non ancora osservati'; ?>. <strong>Azioni candidate:</strong> <?php echo esc_html( (string) $result['all_count'] ); ?>. L’assenza di una fonte significa “non osservato”, non zero.</p>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="ems_local_seo_rebuild_actions">
 					<?php wp_nonce_field( 'ems_local_seo_rebuild_actions' ); ?>
