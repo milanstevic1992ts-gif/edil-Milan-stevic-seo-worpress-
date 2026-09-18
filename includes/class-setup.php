@@ -263,6 +263,7 @@ final class EMS_Local_SEO_Setup {
 			<?php else : ?>
 				<form method="post" action="options.php">
 					<?php settings_fields( 'ems_local_seo_group' ); ?>
+					<input type="hidden" name="<?php echo esc_attr( EMS_Local_SEO_Settings::OPTION_KEY ); ?>[_ems_setup_step]" value="<?php echo esc_attr( $step ); ?>">
 					<div class="ems-seo-panel">
 						<?php $this->render_step_fields( $step, $s ); ?>
 					</div>
