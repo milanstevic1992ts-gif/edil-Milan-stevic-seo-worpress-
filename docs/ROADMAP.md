@@ -52,7 +52,7 @@ Ogni intento principale deve avere una pagina di riferimento. Guide, quiz e lavo
 Riferimento: `docs/BASELINE-2026-09-18.md`.
 
 ## Fase 1 — v1.0.1: analisi affidabili e stabilità
-**Priorità P0. Stato: in sviluppo/test.**
+**Priorità P0. Stato: codice v1.0.1 su main; test automatici superati sul branch; verifica runtime live/staging ancora aperta.**
 
 ### Implementato nel branch v1.0.1
 - Lettore condiviso dei metadata effettivamente pubblicati in HTML.
@@ -69,7 +69,7 @@ Riferimento: `docs/BASELINE-2026-09-18.md`.
 - CI con PHP 8.0/8.2, WordPress reale, TSF attivo, upgrade e rollback.
 
 ### Criteri per chiudere la fase
-- CI completa verde.
+- CI completa verde sul candidato; da riconfermare sul commit `main` prima della release.
 - ZIP installabile verificato.
 - Nessun doppio metadata nel smoke test TSF.
 - Scansione riprendibile oltre il vecchio limite.
