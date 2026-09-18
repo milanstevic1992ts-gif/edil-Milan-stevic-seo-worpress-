@@ -242,6 +242,12 @@ final class EMS_Local_SEO_Schema {
             $schema_type = 'GeneralContractor';
         }
 
+        $street = trim( (string) EMS_Local_SEO_Settings::get( 'street_address', '' ) );
+        $is_local_business = '' !== $street && 'Organization' !== $schema_type;
+        if ( ! $is_local_business ) {
+            $schema_type = 'Organization';
+        }
+
         $node = array(
             '@type'       => $schema_type,
             '@id'         => $business_id,
@@ -273,18 +279,37 @@ final class EMS_Local_SEO_Schema {
             ),
             static fn( mixed $value ): bool => '' !== $value && null !== $value
         );
-        if ( '' !== trim( (string) EMS_Local_SEO_Settings::get( 'street_address', '' ) ) && count( $address ) > 1 ) {
+        if ( $is_local_business && count( $address ) > 1 ) {
             $node['address'] = $address;
         }
 
         $lat = trim( (string) EMS_Local_SEO_Settings::get( 'latitude', '' ) );
         $lng = trim( (string) EMS_Local_SEO_Settings::get( 'longitude', '' ) );
-        if ( is_numeric( $lat ) && is_numeric( $lng ) ) {
+        if ( $is_local_business && is_numeric( $lat ) && is_numeric( $lng ) ) {
             $node['geo'] = array(
                 '@type'     => 'GeoCoordinates',
                 'latitude'  => (float) $lat,
                 'longitude' => (float) $lng,
             );
+        }
+
+        $hours = self::parse_opening_hours( (string) EMS_Local_SEO_Settings::get( 'opening_hours', '' ) );
+        if ( ! empty( $hours ) ) {
+            if ( $is_local_business ) {
+                $node['openingHoursSpecification'] = $hours;
+            } else {
+                $contact = array(
+                    '@type'             => 'ContactPoint',
+                    'contactType'       => 'customer service',
+                    'availableLanguage' => array( 'Italian' ),
+                    'hoursAvailable'    => $hours,
+                );
+                $phone = trim( (string) EMS_Local_SEO_Settings::get( 'phone', '' ) );
+                if ( '' !== $phone ) {
+                    $contact['telephone'] = $phone;
+                }
+                $node['contactPoint'] = array( $contact );
+            }
         }
 
         $areas = $this->lines( (string) EMS_Local_SEO_Settings::get( 'service_areas', '' ) );
@@ -438,6 +463,61 @@ final class EMS_Local_SEO_Schema {
             '@id'             => get_permalink( $post ) . '#breadcrumb',
             'itemListElement' => $items,
         );
+    }
+
+    public static function parse_opening_hours( string $value ): array {
+        $day_map = array(
+            'lun' => 'https://schema.org/Monday',
+            'mar' => 'https://schema.org/Tuesday',
+            'mer' => 'https://schema.org/Wednesday',
+            'gio' => 'https://schema.org/Thursday',
+            'ven' => 'https://schema.org/Friday',
+            'sab' => 'https://schema.org/Saturday',
+            'dom' => 'https://schema.org/Sunday',
+        );
+        $order = array_keys( $day_map );
+        $out = array();
+
+        foreach ( preg_split( '/\r\n|\r|\n/', trim( $value ) ) as $line ) {
+            $line = trim( (string) $line );
+            if ( '' === $line || ! preg_match( '/^(lun|mar|mer|gio|ven|sab|dom)(?:-(lun|mar|mer|gio|ven|sab|dom))?\s+(.+)$/i', $line, $m ) ) {
+                continue;
+            }
+
+            $start = mb_strtolower( $m[1] );
+            $end   = ! empty( $m[2] ) ? mb_strtolower( $m[2] ) : $start;
+            $a = array_search( $start, $order, true );
+            $b = array_search( $end, $order, true );
+            if ( false === $a || false === $b || $b < $a ) {
+                continue;
+            }
+
+            $days = array();
+            for ( $i = $a; $i <= $b; $i++ ) {
+                $days[] = $day_map[ $order[ $i ] ];
+            }
+
+            foreach ( preg_split( '/\s*,\s*/', $m[3] ) as $range ) {
+                if ( ! preg_match( '/^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/', trim( $range ), $tm ) ) {
+                    continue;
+                }
+
+                $opens  = $tm[1] . ':' . $tm[2];
+                $closes = $tm[3] . ':' . $tm[4];
+                if ( $closes <= $opens ) {
+                    continue;
+                }
+
+                $out[] = array(
+                    '@type'     => 'OpeningHoursSpecification',
+                    'dayOfWeek' => $days,
+                    'opens'     => $opens,
+                    'closes'    => $closes,
+                );
+            }
+        }
+
+        return $out;
     }
 
     private function lines( string $value ): array {
