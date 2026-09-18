@@ -180,6 +180,7 @@ final class EMS_Local_SEO_Verification {
 		if ( $complete ) {
 			$state['status']       = 'complete';
 			$state['completed_at'] = current_time( 'mysql' );
+			do_action( 'ems_local_seo_observed_change', 'html_verification_completed', array( 'source' => 'public_html' ) );
 		}
 
 		update_option( self::STATE_OPTION, $state, false );
