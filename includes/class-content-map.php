@@ -79,6 +79,9 @@ final class EMS_Local_SEO_Content_Map {
                         get_the_title( $post ),
                         (string) get_post_meta( $post->ID, '_ems_seo_primary_query', true ),
                         (string) get_post_meta( $post->ID, '_ems_seo_service_name', true ),
+                        (string) get_post_meta( $post->ID, '_ems_case_study_service', true ),
+                        (string) get_post_meta( $post->ID, '_ems_case_study_locality', true ),
+                        (string) get_post_meta( $post->ID, '_ems_case_study_summary', true ),
                         wp_strip_all_tags( strip_shortcodes( $post->post_excerpt . ' ' . $post->post_content ) ),
                     )
                 )
