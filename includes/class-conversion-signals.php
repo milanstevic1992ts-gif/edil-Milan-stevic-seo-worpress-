@@ -76,7 +76,7 @@ final class EMS_Local_SEO_Conversion_Signals {
 		update_option( self::OPTION_KEY, $data, false );
 		do_action(
 			'ems_local_seo_observed_change',
-			'manual_note',
+			'conversion_signal_observed',
 			array(
 				'post_id'     => $post_id,
 				'service_key' => $service_key,
