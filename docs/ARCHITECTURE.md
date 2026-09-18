@@ -12,6 +12,8 @@ Plugin WordPress proprietario per SEO locale di EDIL MILAN STEVIC. Controlla met
 - EMS_Local_SEO_Audit: controlli interni e cache dei risultati.
 - EMS_Local_SEO_Links: suggerimenti euristici di link interni, senza modifiche automatiche.
 - EMS_Local_SEO_Content_Map: copertura tematica, slug sospetti e rilevamento di titoli sovrapposti.
+- EMS_Local_SEO_Search_Console: adapter isolato verso la REST API interna di Site Kit; usa rest_do_request() e l'utente WordPress già autenticato, senza OAuth aggiuntivo.
+- EMS_Local_SEO_Opportunities: aggrega query/landing page, confronta due periodi e genera segnali diagnostici/priorità EMS senza modifiche automatiche.
 
 ## Regole di sicurezza SEO
 - In modalità automatica, se viene rilevato un altro plugin SEO, EMS non emette metadata e non emette schema.

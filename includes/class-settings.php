@@ -165,8 +165,8 @@ final class EMS_Local_SEO_Settings {
 
             <div class="ems-seo-panel">
                 <h2>Stato sviluppo</h2>
-                <p><strong>v0.1 Core:</strong> completato · <strong>v0.2 Metadata:</strong> completato · <strong>v0.3 Entity locale:</strong> completato · <strong>v0.4 Schema graph:</strong> completato · <strong>v0.5 Audit:</strong> completato · <strong>v0.6 Link interni:</strong> completato · <strong>v0.8 Content Map:</strong> completato.</p>
-                <p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-settings' ) ); ?>">Configura l'attività</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-audit' ) ); ?>">Apri audit</a></p>
+                <p><strong>v0.1 Core:</strong> completato · <strong>v0.2 Metadata:</strong> completato · <strong>v0.3 Entity locale:</strong> completato · <strong>v0.4 Schema graph:</strong> completato · <strong>v0.5 Audit:</strong> completato · <strong>v0.6 Link interni:</strong> completato · <strong>v0.8 Content Map:</strong> completato · <strong>v0.9 Search Console:</strong> completato.</p>
+                <p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-opportunities' ) ); ?>">Opportunità Google</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-audit' ) ); ?>">Apri audit</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-settings' ) ); ?>">Configura attività</a></p>
             </div>
         </div>
         <?php
