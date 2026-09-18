@@ -7,6 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class EMS_Local_SEO_Search_Console {
 	public const SNAPSHOT_OPTION = 'ems_local_seo_gsc_snapshot_v1';
 	public const ERROR_OPTION    = 'ems_local_seo_gsc_last_error_v1';
+	public const HISTORY_OPTION  = 'ems_local_seo_gsc_history_v1';
 	public const ROUTE           = '/google-site-kit/v1/modules/search-console/data/searchanalytics';
 
 	private const RANGE_DAYS = 28;
@@ -110,6 +111,7 @@ final class EMS_Local_SEO_Search_Console {
 		);
 
 		update_option( self::SNAPSHOT_OPTION, $snapshot, false );
+		$this->store_history_entry( $snapshot );
 		delete_option( self::ERROR_OPTION );
 
 		return $snapshot;
@@ -225,6 +227,53 @@ final class EMS_Local_SEO_Search_Console {
 				'start' => $previous_start->format( 'Y-m-d' ),
 				'end'   => $previous_end->format( 'Y-m-d' ),
 			),
+		);
+	}
+
+	public function get_history(): array {
+		$history = get_option( self::HISTORY_OPTION, array() );
+
+		return is_array( $history ) ? $history : array();
+	}
+
+	private function store_history_entry( array $snapshot ): void {
+		$history = $this->get_history();
+
+		array_unshift(
+			$history,
+			array(
+				'generated_at' => (string) ( $snapshot['generated_at'] ?? current_time( 'mysql' ) ),
+				'ranges'       => (array) ( $snapshot['ranges'] ?? array() ),
+				'current'      => $this->compact_summary( (array) ( $snapshot['current']['rows'] ?? array() ) ),
+				'previous'     => $this->compact_summary( (array) ( $snapshot['previous']['rows'] ?? array() ) ),
+			)
+		);
+
+		update_option( self::HISTORY_OPTION, array_slice( $history, 0, 12 ), false );
+	}
+
+	private function compact_summary( array $rows ): array {
+		$clicks         = 0.0;
+		$impressions    = 0.0;
+		$position_total = 0.0;
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$row_impressions = max( 0.0, (float) ( $row['impressions'] ?? 0 ) );
+			$clicks         += max( 0.0, (float) ( $row['clicks'] ?? 0 ) );
+			$impressions    += $row_impressions;
+			$position_total += max( 0.0, (float) ( $row['position'] ?? 0 ) ) * $row_impressions;
+		}
+
+		return array(
+			'clicks'      => $clicks,
+			'impressions' => $impressions,
+			'ctr'         => $impressions > 0 ? $clicks / $impressions : 0.0,
+			'position'    => $impressions > 0 ? $position_total / $impressions : 0.0,
+			'rows'        => count( $rows ),
 		);
 	}
 
