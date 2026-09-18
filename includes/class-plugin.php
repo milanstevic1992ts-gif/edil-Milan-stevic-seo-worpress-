@@ -38,6 +38,7 @@ final class EMS_Local_SEO_Plugin {
         }
 
         $this->booted        = true;
+        self::maybe_upgrade();
         $this->compatibility = new EMS_Local_SEO_Compatibility();
         $this->settings      = new EMS_Local_SEO_Settings( $this->compatibility );
         $this->meta          = new EMS_Local_SEO_Meta( $this->compatibility );
@@ -79,6 +80,29 @@ final class EMS_Local_SEO_Plugin {
             array(),
             EMS_LOCAL_SEO_VERSION
         );
+    }
+
+    public static function maybe_upgrade(): void {
+        $stored_version = (string) get_option( 'ems_local_seo_version', '' );
+
+        if ( EMS_LOCAL_SEO_VERSION === $stored_version ) {
+            return;
+        }
+
+        $defaults = EMS_Local_SEO_Settings::defaults();
+        $current  = get_option( EMS_Local_SEO_Settings::OPTION_KEY, array() );
+
+        if ( ! is_array( $current ) ) {
+            $current = array();
+        }
+
+        update_option(
+            EMS_Local_SEO_Settings::OPTION_KEY,
+            wp_parse_args( $current, $defaults ),
+            false
+        );
+
+        update_option( 'ems_local_seo_version', EMS_LOCAL_SEO_VERSION, false );
     }
 
     public static function activate(): void {
