@@ -26,6 +26,8 @@ require_once EMS_LOCAL_SEO_DIR . 'includes/class-settings.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-meta.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-schema.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-audit.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-effective-meta.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-verification.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-links.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-content-map.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-search-console.php';
