@@ -23,6 +23,7 @@ final class EMS_Local_SEO_Plugin {
     public EMS_Local_SEO_Link_Health $link_health;
     public EMS_Local_SEO_Case_Studies $case_studies;
     public EMS_Local_SEO_Change_Journal $change_journal;
+    public EMS_Local_SEO_Conversion_Signals $conversion_signals;
     public EMS_Local_SEO_Action_Center $action_center;
 
     public static function instance(): self {
@@ -57,6 +58,7 @@ final class EMS_Local_SEO_Plugin {
         $this->link_health    = new EMS_Local_SEO_Link_Health();
         $this->case_studies   = new EMS_Local_SEO_Case_Studies();
         $this->change_journal  = new EMS_Local_SEO_Change_Journal();
+        $this->conversion_signals = new EMS_Local_SEO_Conversion_Signals();
         $this->action_center   = new EMS_Local_SEO_Action_Center(
             $this->local_engine,
             $this->verification,
@@ -64,7 +66,8 @@ final class EMS_Local_SEO_Plugin {
             $this->search_console,
             $this->opportunities,
             $this->links,
-            $this->change_journal
+            $this->change_journal,
+            $this->conversion_signals
         );
 
         $this->compatibility->hooks();
@@ -81,6 +84,7 @@ final class EMS_Local_SEO_Plugin {
         $this->link_health->hooks();
         $this->case_studies->hooks();
         $this->change_journal->hooks();
+        $this->conversion_signals->hooks();
         $this->action_center->hooks();
 
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
