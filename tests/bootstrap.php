@@ -55,18 +55,40 @@ if ( ! function_exists( 'esc_html__' ) ) {
 	}
 }
 
-if ( ! class_exists( 'EMS_Local_SEO_Search_Console' ) ) {
-	class EMS_Local_SEO_Search_Console {
-		public function get_snapshot(): array {
-			return array();
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		private string $code;
+		private string $message;
+		private $data;
+
+		public function __construct( $code = '', $message = '', $data = null ) {
+			$this->code = (string) $code;
+			$this->message = (string) $message;
+			$this->data = $data;
 		}
 
-		public function get_last_error(): array {
-			return array();
+		public function get_error_code() {
+			return $this->code;
+		}
+
+		public function get_error_message() {
+			return $this->message;
+		}
+
+		public function get_error_data() {
+			return $this->data;
 		}
 	}
 }
 
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	class WP_REST_Request {
+		public function __construct( $method = 'GET', $route = '' ) {}
+		public function set_query_params( $params ) {}
+	}
+}
+
+require_once dirname( __DIR__ ) . '/includes/class-search-console.php';
 require_once dirname( __DIR__ ) . '/includes/class-opportunities.php';
 require_once dirname( __DIR__ ) . '/includes/class-effective-meta.php';
 require_once dirname( __DIR__ ) . '/includes/class-link-health.php';
