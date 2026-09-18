@@ -17,6 +17,7 @@ delete_transient( 'ems_local_seo_link_suggestions_v1' );
 delete_transient( 'ems_local_seo_content_map_v1' );
 delete_option( 'ems_local_seo_gsc_snapshot_v1' );
 delete_option( 'ems_local_seo_gsc_last_error_v1' );
+delete_option( 'ems_local_seo_gsc_history_v1' );
 
 global $wpdb;
 $meta_keys = array(
