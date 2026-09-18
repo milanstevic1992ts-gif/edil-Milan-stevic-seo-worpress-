@@ -29,6 +29,11 @@ delete_option( 'ems_local_seo_verification_lock_v1' );
 delete_option( 'ems_local_seo_gsc_snapshot_v1' );
 delete_option( 'ems_local_seo_gsc_last_error_v1' );
 delete_option( 'ems_local_seo_gsc_history_v1' );
+delete_option( 'ems_local_seo_gsc_user' );
+delete_option( 'ems_local_seo_indexnow_key' );
+delete_option( 'ems_local_seo_indexnow_log' );
+wp_unschedule_hook( 'ems_local_seo_indexnow_ping' );
+wp_unschedule_hook( 'ems_local_seo_gsc_daily' );
 
 global $wpdb;
 $meta_keys = array(
