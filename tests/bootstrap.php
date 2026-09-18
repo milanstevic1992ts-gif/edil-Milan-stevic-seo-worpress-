@@ -1,7 +1,7 @@
 <?php
 
 define( 'ABSPATH', __DIR__ . '/' );
-define( 'EMS_LOCAL_SEO_VERSION', '1.4.0-test' );
+define( 'EMS_LOCAL_SEO_VERSION', '1.4.1-test' );
 
 $GLOBALS['ems_test_can_manage'] = true;
 $GLOBALS['ems_test_nonce_calls'] = array();
