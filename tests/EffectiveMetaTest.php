@@ -14,7 +14,10 @@ final class EffectiveMetaTest extends TestCase {
 <link rel="canonical" href="https://triesteincostruzione.com/ristrutturazione-bagno/">
 <meta name="robots" content="index,follow">
 </head>
-<body></body>
+<body>
+<a href="https://triesteincostruzione.com/ristrutturazione-bagno/">Bagno</a>
+<a href="/servizio-di-piastrellatura/">Piastrelle</a>
+</body>
 </html>
 HTML;
 
@@ -29,6 +32,9 @@ HTML;
 		$this->assertSame( 2, $result['description_count'] );
 		$this->assertSame( 1, $result['canonical_count'] );
 		$this->assertFalse( $result['noindex'] );
+		$this->assertSame( 2, $result['link_count'] );
+		$this->assertContains( 'https://triesteincostruzione.com/ristrutturazione-bagno/', $result['links'] );
+		$this->assertContains( '/servizio-di-piastrellatura/', $result['links'] );
 	}
 
 	public function test_parser_detects_noindex(): void {
