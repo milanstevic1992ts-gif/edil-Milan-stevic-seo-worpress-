@@ -104,6 +104,16 @@ final class EMS_Local_SEO_IndexNow {
 			return;
 		}
 
+		$lock = 'ems_indexnow_' . md5( $url );
+		if ( get_transient( $lock ) ) {
+			return;
+		}
+
+		if ( wp_next_scheduled( self::CRON_HOOK, array( $url ) ) ) {
+			return;
+		}
+
+		set_transient( $lock, 1, 10 * MINUTE_IN_SECONDS );
 		wp_schedule_single_event( time() + 30, self::CRON_HOOK, array( $url ) );
 	}
 
