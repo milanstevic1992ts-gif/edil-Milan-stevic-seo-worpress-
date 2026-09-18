@@ -10,6 +10,7 @@ final class EMS_Local_SEO_Local_Engine {
 
 	public function hooks(): void {
 		add_action( 'admin_menu', array( $this, 'register_page' ), 38 );
+		add_action( 'admin_init', array( $this, 'maybe_observe' ), 40 );
 		add_action( 'admin_post_ems_local_seo_rebuild_local_engine', array( $this, 'handle_rebuild' ) );
 		add_action( 'save_post', array( $this, 'invalidate_cache' ), 20, 1 );
 	}
@@ -27,6 +28,19 @@ final class EMS_Local_SEO_Local_Engine {
 
 	public function invalidate_cache(): void {
 		delete_transient( self::TRANSIENT_KEY );
+	}
+
+	public function maybe_observe(): void {
+		if ( wp_doing_ajax() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$cached = get_transient( self::TRANSIENT_KEY );
+		if ( is_array( $cached ) ) {
+			return;
+		}
+
+		$this->build( true );
 	}
 
 	public function handle_rebuild(): void {
