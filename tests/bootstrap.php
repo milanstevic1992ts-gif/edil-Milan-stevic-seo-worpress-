@@ -1,7 +1,7 @@
 <?php
 
 define( 'ABSPATH', __DIR__ . '/' );
-define( 'EMS_LOCAL_SEO_VERSION', '1.4.0-test' );
+define( 'EMS_LOCAL_SEO_VERSION', '1.4.1-test' );
 
 $GLOBALS['ems_test_can_manage'] = true;
 $GLOBALS['ems_test_nonce_calls'] = array();
@@ -30,6 +30,46 @@ if ( ! function_exists( 'sanitize_key' ) ) {
 		$key = strtolower( (string) $key );
 		return preg_replace( '/[^a-z0-9_\-]/', '', $key );
 	}
+}
+
+if ( ! function_exists( 'sanitize_text_field' ) ) {
+	function sanitize_text_field( $value ) {
+		return trim( strip_tags( (string) $value ) );
+	}
+}
+
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+	function sanitize_textarea_field( $value ) {
+		return trim( strip_tags( (string) $value ) );
+	}
+}
+
+if ( ! function_exists( 'sanitize_email' ) ) {
+	function sanitize_email( $value ) {
+		return filter_var( (string) $value, FILTER_SANITIZE_EMAIL );
+	}
+}
+
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	function esc_url_raw( $value ) {
+		return filter_var( (string) $value, FILTER_SANITIZE_URL );
+	}
+}
+
+if ( ! function_exists( 'home_url' ) ) {
+	function home_url( $path = '/' ) {
+		return 'https://triesteincostruzione.com' . ( '/' === $path ? '/' : '/' . ltrim( (string) $path, '/' ) );
+	}
+}
+
+if ( ! function_exists( 'wp_parse_args' ) ) {
+	function wp_parse_args( $args, $defaults = array() ) {
+		return array_merge( (array) $defaults, (array) $args );
+	}
+}
+
+if ( ! class_exists( 'EMS_Local_SEO_Compatibility' ) ) {
+	class EMS_Local_SEO_Compatibility {}
 }
 
 if ( ! function_exists( 'current_time' ) ) {
@@ -171,6 +211,7 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 	}
 }
 
+require_once dirname( __DIR__ ) . '/includes/class-settings.php';
 require_once dirname( __DIR__ ) . '/includes/class-search-console.php';
 require_once dirname( __DIR__ ) . '/includes/class-opportunities.php';
 require_once dirname( __DIR__ ) . '/includes/class-effective-meta.php';

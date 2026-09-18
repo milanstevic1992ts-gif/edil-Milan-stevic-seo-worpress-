@@ -73,52 +73,111 @@ final class EMS_Local_SEO_Settings {
     }
 
     public function sanitize( mixed $input ): array {
-        $input = is_array( $input ) ? $input : array();
-        $out   = self::defaults();
+        $input    = is_array( $input ) ? $input : array();
+        $defaults = self::defaults();
+        $stored   = get_option( self::OPTION_KEY, array() );
+        $stored   = is_array( $stored ) ? $stored : array();
+
+        // Always start from the currently saved settings so a wizard step cannot
+        // erase values belonging to another step.
+        $out = array_merge( $defaults, array_intersect_key( $stored, $defaults ) );
+
+        $step        = isset( $input['_ems_setup_step'] ) ? sanitize_key( (string) $input['_ems_setup_step'] ) : '';
+        $step_fields = self::setup_step_fields();
+        $is_partial  = isset( $step_fields[ $step ] );
+        $allowed     = $is_partial ? array_flip( $step_fields[ $step ] ) : array();
+
+        $can_update = static function ( string $field ) use ( $is_partial, $allowed ): bool {
+            return ! $is_partial || isset( $allowed[ $field ] );
+        };
 
         $text_fields = array(
             'business_name', 'business_schema_type', 'schema_ownership', 'legal_name', 'phone', 'street_address', 'locality',
             'region', 'postal_code', 'country', 'latitude', 'longitude',
         );
         foreach ( $text_fields as $field ) {
-            if ( array_key_exists( $field, $input ) ) {
+            if ( $can_update( $field ) && array_key_exists( $field, $input ) ) {
                 $out[ $field ] = sanitize_text_field( (string) $input[ $field ] );
             }
         }
 
-        if ( isset( $input['description'] ) ) {
+        if ( $can_update( 'description' ) && array_key_exists( 'description', $input ) ) {
             $out['description'] = sanitize_textarea_field( (string) $input['description'] );
         }
-        if ( isset( $input['email'] ) ) {
+        if ( $can_update( 'email' ) && array_key_exists( 'email', $input ) ) {
             $out['email'] = sanitize_email( (string) $input['email'] );
         }
 
         $url_fields = array( 'website', 'logo_url', 'google_business_url', 'facebook_url', 'instagram_url', 'tiktok_url' );
         foreach ( $url_fields as $field ) {
-            if ( isset( $input[ $field ] ) ) {
+            if ( $can_update( $field ) && array_key_exists( $field, $input ) ) {
                 $out[ $field ] = esc_url_raw( (string) $input[ $field ] );
             }
         }
 
-        if ( isset( $input['opening_hours'] ) ) {
+        if ( $can_update( 'opening_hours' ) && array_key_exists( 'opening_hours', $input ) ) {
             $lines = preg_split( '/\r\n|\r|\n/', (string) $input['opening_hours'] );
             $lines = array_filter( array_map( 'sanitize_text_field', (array) $lines ) );
             $out['opening_hours'] = implode( "\n", array_values( $lines ) );
         }
 
         foreach ( array( 'service_areas', 'services' ) as $field ) {
-            if ( isset( $input[ $field ] ) ) {
+            if ( $can_update( $field ) && array_key_exists( $field, $input ) ) {
                 $lines = preg_split( '/\r\n|\r|\n/', (string) $input[ $field ] );
                 $lines = array_filter( array_map( 'sanitize_text_field', (array) $lines ) );
                 $out[ $field ] = implode( "\n", array_values( array_unique( $lines ) ) );
             }
         }
 
-        foreach ( array( 'enable_schema', 'enable_breadcrumbs', 'enable_indexnow', 'gsc_auto_refresh', 'enable_contacts', 'delete_data_uninstall' ) as $flag ) {
-            $out[ $flag ] = ! empty( $input[ $flag ] ) ? 1 : 0;
+        $flags = array( 'enable_schema', 'enable_breadcrumbs', 'enable_indexnow', 'gsc_auto_refresh', 'enable_contacts', 'delete_data_uninstall' );
+        foreach ( $flags as $flag ) {
+            if ( $can_update( $flag ) ) {
+                // For a submitted checkbox group, absence means the checkbox was
+                // intentionally unchecked. Flags from other wizard steps are untouched.
+                $out[ $flag ] = ! empty( $input[ $flag ] ) ? 1 : 0;
+            }
         }
 
         return $out;
+    }
+
+    private static function setup_step_fields(): array {
+        return array(
+            'attivita' => array(
+                'business_name',
+                'legal_name',
+                'description',
+                'phone',
+                'email',
+                'logo_url',
+            ),
+            'zona' => array(
+                'street_address',
+                'locality',
+                'region',
+                'postal_code',
+                'service_areas',
+            ),
+            'servizi' => array(
+                'services',
+            ),
+            'orari' => array(
+                'opening_hours',
+            ),
+            'profili' => array(
+                'google_business_url',
+                'facebook_url',
+                'instagram_url',
+                'tiktok_url',
+            ),
+            'integrazioni' => array(
+                'enable_schema',
+                'enable_breadcrumbs',
+                'enable_indexnow',
+                'gsc_auto_refresh',
+                'enable_contacts',
+            ),
+        );
     }
 
     public function register_menu(): void {
