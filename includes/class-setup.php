@@ -276,6 +276,17 @@ final class EMS_Local_SEO_Setup {
 					<?php wp_nonce_field( 'ems_local_seo_import' ); ?>
 					<?php submit_button( 'Importa dati disponibili da SEO Framework / tema', 'secondary', 'submit', false ); ?>
 				</form>
+			<?php elseif ( 'integrazioni' === $step && EMS_Local_SEO_IndexNow::is_enabled() ) : ?>
+				<div class="ems-seo-panel">
+					<h2>Test IndexNow</h2>
+					<p>Verifica che il motore riesca a leggere la chiave pubblica del sito. Un HTTP 200/202 indica ricezione, non indicizzazione garantita.</p>
+					<p><code><?php echo esc_html( EMS_Local_SEO_IndexNow::key_url() ); ?></code></p>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="ems_local_seo_test_indexnow">
+						<?php wp_nonce_field( 'ems_local_seo_test_indexnow' ); ?>
+						<?php submit_button( 'Invia test IndexNow', 'secondary', 'submit', false ); ?>
+					</form>
+				</div>
 			<?php endif; ?>
 		</div>
 		<?php
