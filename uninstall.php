@@ -19,6 +19,7 @@ delete_transient( 'ems_local_seo_content_map_v1' );
 delete_transient( 'ems_local_seo_local_engine_v1' );
 delete_option( 'ems_local_seo_local_engine_history_v1' );
 delete_option( 'ems_local_seo_change_journal_v1' );
+delete_option( 'ems_local_seo_conversion_signals_v1' );
 delete_transient( 'ems_local_seo_action_center_v1' );
 delete_transient( 'ems_local_seo_link_health_v1' );
 delete_option( 'ems_local_seo_link_health_state_v2' );
