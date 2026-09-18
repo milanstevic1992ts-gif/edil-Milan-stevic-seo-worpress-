@@ -4,7 +4,7 @@ Tags: seo, local seo, schema, localbusiness, construction
 Requires at least: 6.7
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.9.0
+Stable tag: 1.0.0
 License: GPLv2 or later
 
 SEO locale e tecnico per EDIL MILAN STEVIC.
@@ -30,6 +30,14 @@ Il punteggio dell'audit è una metrica interna diagnostica e non rappresenta un 
 
 
 == Changelog ==
+
+= 1.0.0 =
+* Link Health manuale per link interni, redirect e risposte 4xx/5xx.
+* Modulo Lavori reali / Case Study con servizio, località, descrizione e audit immagini/ALT.
+* I metadati dei case study alimentano la Content Map.
+* Workflow GitHub Release con ZIP installabile e checksum SHA-256.
+* Consolidamento dashboard e pulizia dati in disinstallazione.
+
 
 = 0.9.0 =
 * Integrazione Search Console tramite Site Kit REST interna.
