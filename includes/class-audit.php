@@ -143,7 +143,7 @@ final class EMS_Local_SEO_Audit {
         foreach ( $queries as $query => $group ) {
             if ( count( $group ) > 1 ) {
                 foreach ( $group as $post ) {
-                    $issues[] = $this->issue( $post, 'warning', 'Possibile cannibalizzazione: query principale duplicata “' . $query . '”' );
+                    $issues[] = $this->issue( $post, 'info', 'Query principale assegnata a più contenuti: “' . $query . '”. Verificare se gli intenti sono realmente sovrapposti.' );
                 }
             }
         }
@@ -157,6 +157,8 @@ final class EMS_Local_SEO_Audit {
                 admin_url( 'admin.php?page=ems-local-seo-settings' )
             );
         }
+
+        $orphan_coverage = $this->count_navigation_inbound( $inbound );
 
         $front_id = (int) get_option( 'page_on_front' );
         foreach ( $posts as $post ) {
@@ -179,9 +181,49 @@ final class EMS_Local_SEO_Audit {
             'generated_at' => current_time( 'mysql' ),
             'score'        => $score,
             'pages'        => count( $posts ),
-            'issues_count' => count( $issues ),
-            'issues'       => $issues,
+            'issues_count'    => count( $issues ),
+            'issues'          => $issues,
+            'orphan_coverage' => $orphan_coverage,
         );
+    }
+
+    private function count_navigation_inbound( array &$inbound ): array {
+        $coverage = array(
+            'post_content'     => true,
+            'classic_menus'    => false,
+            'block_navigation' => false,
+        );
+
+        if ( post_type_exists( 'wp_navigation' ) ) {
+            $navigation_posts = get_posts(
+                array(
+                    'post_type'      => 'wp_navigation',
+                    'post_status'    => 'publish',
+                    'posts_per_page' => -1,
+                    'orderby'        => 'ID',
+                    'order'          => 'ASC',
+                )
+            );
+
+            foreach ( $navigation_posts as $navigation_post ) {
+                $this->count_internal_links( (string) $navigation_post->post_content, $inbound );
+            }
+
+            $coverage['block_navigation'] = true;
+        }
+
+        if ( function_exists( 'wp_get_nav_menus' ) && function_exists( 'wp_get_nav_menu_items' ) ) {
+            foreach ( (array) wp_get_nav_menus() as $menu ) {
+                foreach ( (array) wp_get_nav_menu_items( $menu->term_id ) as $item ) {
+                    $href = isset( $item->url ) ? (string) $item->url : '';
+                    $this->count_single_internal_link( $href, $inbound );
+                }
+            }
+
+            $coverage['classic_menus'] = true;
+        }
+
+        return $coverage;
     }
 
     private function count_images_missing_alt( string $html ): int {
@@ -212,12 +254,27 @@ final class EMS_Local_SEO_Audit {
                 if ( ! str_starts_with( $href, home_url() ) && ! str_starts_with( $href, '/' ) ) {
                     continue;
                 }
-                $absolute = str_starts_with( $href, '/' ) ? home_url( $href ) : $href;
-                $target   = url_to_postid( $absolute );
-                if ( $target && array_key_exists( $target, $inbound ) ) {
-                    $inbound[ $target ]++;
-                }
+                $this->count_single_internal_link( $href, $inbound );
             }
+        }
+    }
+
+    private function count_single_internal_link( string $href, array &$inbound ): void {
+        $href = html_entity_decode( trim( $href ), ENT_QUOTES | ENT_HTML5 );
+
+        if ( '' === $href ) {
+            return;
+        }
+
+        if ( ! str_starts_with( $href, home_url() ) && ! str_starts_with( $href, '/' ) ) {
+            return;
+        }
+
+        $absolute = str_starts_with( $href, '/' ) ? home_url( $href ) : $href;
+        $target   = url_to_postid( $absolute );
+
+        if ( $target && array_key_exists( $target, $inbound ) ) {
+            $inbound[ $target ]++;
         }
     }
 
@@ -257,6 +314,9 @@ final class EMS_Local_SEO_Audit {
         <div class="wrap ems-seo-wrap">
             <div class="ems-seo-hero"><div><span class="ems-seo-kicker">ANALISI LOCALE</span><h1>SEO Audit</h1><p>Segnala problemi tecnici e strutturali. Il punteggio è interno e non è un punteggio Google.</p></div><div class="ems-seo-score"><?php echo esc_html( (string) $result['score'] ); ?><small>/100</small></div></div>
             <p>Ultimo controllo: <strong><?php echo esc_html( (string) $result['generated_at'] ); ?></strong> · <?php echo esc_html( (string) $result['pages'] ); ?> contenuti · <?php echo esc_html( (string) $result['issues_count'] ); ?> segnalazioni.</p>
+            <?php if ( ! empty( $result['orphan_coverage'] ) ) : ?>
+                <p><small>Copertura orphan: contenuto sì · menu classici <?php echo ! empty( $result['orphan_coverage']['classic_menus'] ) ? 'sì' : 'non disponibili'; ?> · navigazione a blocchi <?php echo ! empty( $result['orphan_coverage']['block_navigation'] ) ? 'sì' : 'non rilevata'; ?>.</small></p>
+            <?php endif; ?>
             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                 <input type="hidden" name="action" value="ems_local_seo_run_audit">
                 <?php wp_nonce_field( 'ems_local_seo_run_audit' ); ?>
