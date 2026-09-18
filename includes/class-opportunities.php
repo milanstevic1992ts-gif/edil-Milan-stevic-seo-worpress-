@@ -189,7 +189,7 @@ final class EMS_Local_SEO_Opportunities {
 			}
 		}
 
-		$items = array_merge( $items, $this->cannibalization_opportunities( $current_rows ) );
+		$items = array_merge( $items, $this->query_overlap_opportunities( $current_rows ) );
 
 		usort(
 			$items,
@@ -288,7 +288,7 @@ final class EMS_Local_SEO_Opportunities {
 		);
 	}
 
-	private function cannibalization_opportunities( array $rows ): array {
+	private function query_overlap_opportunities( array $rows ): array {
 		$queries = array();
 
 		foreach ( $rows as $row ) {
@@ -324,8 +324,8 @@ final class EMS_Local_SEO_Opportunities {
 
 			$top = $pages[0];
 			$items[] = array(
-				'type'        => 'cannibalization',
-				'label'       => 'Possibile cannibalizzazione',
+				'type'        => 'query_overlap',
+				'label'       => 'Query distribuita su più URL',
 				'query'       => $top['query'],
 				'page'        => $top['page'],
 				'secondary_page' => $pages[1]['page'],
@@ -583,7 +583,7 @@ final class EMS_Local_SEO_Opportunities {
 						CTR: <strong><?php echo esc_html( (string) ( $analysis['counts']['low_ctr'] ?? 0 ) ); ?></strong> ·
 						Cali: <strong><?php echo esc_html( (string) ( $analysis['counts']['declining'] ?? 0 ) ); ?></strong> ·
 						Crescita: <strong><?php echo esc_html( (string) ( $analysis['counts']['rising'] ?? 0 ) ); ?></strong> ·
-						Cannibalizzazione: <strong><?php echo esc_html( (string) ( $analysis['counts']['cannibalization'] ?? 0 ) ); ?></strong> ·
+						Query su più URL: <strong><?php echo esc_html( (string) ( $analysis['counts']['query_overlap'] ?? 0 ) ); ?></strong> ·
 						Assenti dal campione: <strong><?php echo esc_html( (string) ( $analysis['counts']['missing_from_sample'] ?? 0 ) ); ?></strong>
 					</p>
 				</div>

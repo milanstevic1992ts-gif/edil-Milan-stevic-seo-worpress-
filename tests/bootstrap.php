@@ -1,11 +1,12 @@
 <?php
 
 define( 'ABSPATH', __DIR__ . '/' );
-define( 'EMS_LOCAL_SEO_VERSION', '1.0.1-test' );
+define( 'EMS_LOCAL_SEO_VERSION', '1.4.0-test' );
 
 $GLOBALS['ems_test_can_manage'] = true;
 $GLOBALS['ems_test_nonce_calls'] = array();
 $GLOBALS['ems_test_meta'] = array();
+$GLOBALS['ems_test_options'] = array();
 
 if ( ! class_exists( 'WP_Post' ) ) {
 	class WP_Post {
@@ -21,6 +22,38 @@ if ( ! class_exists( 'WP_Post' ) ) {
 				$this->{$key} = $value;
 			}
 		}
+	}
+}
+
+if ( ! function_exists( 'sanitize_key' ) ) {
+	function sanitize_key( $key ) {
+		$key = strtolower( (string) $key );
+		return preg_replace( '/[^a-z0-9_\-]/', '', $key );
+	}
+}
+
+if ( ! function_exists( 'current_time' ) ) {
+	function current_time( $type ) {
+		return 'Y-m-d' === $type ? '2026-09-18' : '2026-09-18 09:30:00';
+	}
+}
+
+if ( ! function_exists( 'do_action' ) ) {
+	function do_action( $hook_name, ...$args ) {
+		return null;
+	}
+}
+
+if ( ! function_exists( 'get_option' ) ) {
+	function get_option( $key, $default = false ) {
+		return array_key_exists( $key, $GLOBALS['ems_test_options'] ) ? $GLOBALS['ems_test_options'][ $key ] : $default;
+	}
+}
+
+if ( ! function_exists( 'update_option' ) ) {
+	function update_option( $key, $value, $autoload = null ) {
+		$GLOBALS['ems_test_options'][ $key ] = $value;
+		return true;
 	}
 }
 
@@ -143,3 +176,9 @@ require_once dirname( __DIR__ ) . '/includes/class-opportunities.php';
 require_once dirname( __DIR__ ) . '/includes/class-effective-meta.php';
 require_once dirname( __DIR__ ) . '/includes/class-link-health.php';
 require_once dirname( __DIR__ ) . '/includes/class-local-engine.php';
+require_once dirname( __DIR__ ) . '/includes/class-change-journal.php';
+require_once dirname( __DIR__ ) . '/includes/class-conversion-signals.php';
+require_once dirname( __DIR__ ) . '/includes/class-action-center.php';
+require_once dirname( __DIR__ ) . '/includes/class-forecast.php';
+require_once dirname( __DIR__ ) . '/includes/class-schema.php';
+require_once dirname( __DIR__ ) . '/includes/class-indexnow.php';

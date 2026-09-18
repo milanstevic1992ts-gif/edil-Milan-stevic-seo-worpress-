@@ -223,6 +223,7 @@ final class EMS_Local_SEO_Link_Health {
 		if ( $end >= $total ) {
 			$state['status']       = 'complete';
 			$state['completed_at'] = current_time( 'mysql' );
+			do_action( 'ems_local_seo_observed_change', 'link_health_completed', array( 'source' => 'link_health' ) );
 		}
 
 		update_option( self::STATE_OPTION, $state, false );

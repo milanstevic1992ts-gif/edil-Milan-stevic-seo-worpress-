@@ -40,6 +40,10 @@ final class EMS_Local_SEO_Settings {
             'tiktok_url'            => '',
             'service_areas'         => "Trieste",
             'services'              => "Ristrutturazione appartamenti\nRistrutturazione bagni\nPosa piastrelle\nCartongesso\nPavimenti SPC e LVT\nTinteggiatura e rasatura\nOpere murarie",
+            'opening_hours'         => '',
+            'enable_indexnow'       => 0,
+            'gsc_auto_refresh'      => 0,
+            'enable_contacts'       => 0,
             'enable_schema'         => 1,
             'schema_ownership'      => 'auto',
             'enable_breadcrumbs'    => 1,
@@ -96,6 +100,12 @@ final class EMS_Local_SEO_Settings {
             }
         }
 
+        if ( isset( $input['opening_hours'] ) ) {
+            $lines = preg_split( '/\r\n|\r|\n/', (string) $input['opening_hours'] );
+            $lines = array_filter( array_map( 'sanitize_text_field', (array) $lines ) );
+            $out['opening_hours'] = implode( "\n", array_values( $lines ) );
+        }
+
         foreach ( array( 'service_areas', 'services' ) as $field ) {
             if ( isset( $input[ $field ] ) ) {
                 $lines = preg_split( '/\r\n|\r|\n/', (string) $input[ $field ] );
@@ -104,7 +114,7 @@ final class EMS_Local_SEO_Settings {
             }
         }
 
-        foreach ( array( 'enable_schema', 'enable_breadcrumbs', 'delete_data_uninstall' ) as $flag ) {
+        foreach ( array( 'enable_schema', 'enable_breadcrumbs', 'enable_indexnow', 'gsc_auto_refresh', 'enable_contacts', 'delete_data_uninstall' ) as $flag ) {
             $out[ $flag ] = ! empty( $input[ $flag ] ) ? 1 : 0;
         }
 
@@ -117,7 +127,13 @@ final class EMS_Local_SEO_Settings {
             'EMS SEO',
             'manage_options',
             'ems-local-seo',
-            array( $this, 'render_dashboard' ),
+            static function (): void {
+                if ( isset( EMS_Local_SEO_Plugin::instance()->dashboard ) ) {
+                    EMS_Local_SEO_Plugin::instance()->dashboard->render();
+                    return;
+                }
+                EMS_Local_SEO_Plugin::instance()->settings->render_dashboard();
+            },
             'dashicons-chart-area',
             58
         );
@@ -168,8 +184,8 @@ final class EMS_Local_SEO_Settings {
 
             <div class="ems-seo-panel">
                 <h2>Stato sviluppo</h2>
-                <p><strong>v1.0.1:</strong> stabile · <strong>v1.1:</strong> motore locale adattivo in sviluppo. Parte dai contenuti esistenti e aumenta l'affidabilità quando arrivano HTML pubblico, Search Console, classificazioni manuali e lavori reali.</p>
-                <p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-local-engine' ) ); ?>">Motore locale</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-verification' ) ); ?>">Verifica HTML pubblico</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-link-health' ) ); ?>">Link Health</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-opportunities' ) ); ?>">Opportunità Google</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-audit' ) ); ?>">Audit database</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-settings' ) ); ?>">Configura attività</a></p>
+                <p><strong>v1.1:</strong> motore locale adattivo · <strong>v1.2:</strong> Centro Azioni e memoria operativa. Le priorità funzionano anche senza Search Console e si arricchiscono man mano che arrivano segnali reali.</p>
+                <p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-actions' ) ); ?>">Azioni settimana</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-local-engine' ) ); ?>">Motore locale</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-verification' ) ); ?>">Verifica HTML pubblico</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-link-health' ) ); ?>">Link Health</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-opportunities' ) ); ?>">Opportunità Google</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-audit' ) ); ?>">Audit database</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-settings' ) ); ?>">Configura attività</a></p>
             </div>
         </div>
         <?php
@@ -210,6 +226,7 @@ final class EMS_Local_SEO_Settings {
                     <?php $this->text_row( 'longitude', 'Longitudine', $s ); ?>
                     <?php $this->textarea_row( 'service_areas', 'Aree servite · una per riga', $s ); ?>
                     <?php $this->textarea_row( 'services', 'Servizi · uno per riga', $s ); ?>
+                    <?php $this->textarea_row( 'opening_hours', 'Orari · es. lun-ven 08:00-12:00, 14:00-18:00', $s ); ?>
                 </div>
 
                 <div class="ems-seo-panel">
@@ -225,6 +242,9 @@ final class EMS_Local_SEO_Settings {
                     <?php $this->checkbox_row( 'enable_schema', 'Abilita schema JSON-LD', $s ); ?>
                     <?php $this->schema_ownership_row( $s ); ?>
                     <?php $this->checkbox_row( 'enable_breadcrumbs', 'Abilita BreadcrumbList', $s ); ?>
+                    <?php $this->checkbox_row( 'enable_indexnow', 'Abilita IndexNow · Bing e motori aderenti', $s ); ?>
+                    <?php $this->checkbox_row( 'gsc_auto_refresh', 'Aggiorna Search Console ogni giorno dopo il primo refresh manuale', $s ); ?>
+                    <?php $this->checkbox_row( 'enable_contacts', 'Prepara conteggio contatti · richiede integrazione consenso tramite filtro', $s ); ?>
                     <?php $this->checkbox_row( 'delete_data_uninstall', 'Elimina impostazioni quando il plugin viene disinstallato', $s ); ?>
                 </div>
                 <?php submit_button( 'Salva impostazioni' ); ?>

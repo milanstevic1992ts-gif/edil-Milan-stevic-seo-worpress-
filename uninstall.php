@@ -18,6 +18,9 @@ delete_transient( 'ems_local_seo_link_suggestions_v2' );
 delete_transient( 'ems_local_seo_content_map_v1' );
 delete_transient( 'ems_local_seo_local_engine_v1' );
 delete_option( 'ems_local_seo_local_engine_history_v1' );
+delete_option( 'ems_local_seo_change_journal_v1' );
+delete_option( 'ems_local_seo_conversion_signals_v1' );
+delete_transient( 'ems_local_seo_action_center_v1' );
 delete_transient( 'ems_local_seo_link_health_v1' );
 delete_option( 'ems_local_seo_link_health_state_v2' );
 delete_option( 'ems_local_seo_link_health_lock_v2' );
@@ -26,6 +29,11 @@ delete_option( 'ems_local_seo_verification_lock_v1' );
 delete_option( 'ems_local_seo_gsc_snapshot_v1' );
 delete_option( 'ems_local_seo_gsc_last_error_v1' );
 delete_option( 'ems_local_seo_gsc_history_v1' );
+delete_option( 'ems_local_seo_gsc_user' );
+delete_option( 'ems_local_seo_indexnow_key' );
+delete_option( 'ems_local_seo_indexnow_log' );
+wp_unschedule_hook( 'ems_local_seo_indexnow_ping' );
+wp_unschedule_hook( 'ems_local_seo_gsc_daily' );
 
 global $wpdb;
 $meta_keys = array(

@@ -141,6 +141,15 @@ jobs:
           test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = "$CANDIDATE_VERSION"
           wp plugin is-active ems-local-seo --path=/tmp/wp --allow-root
 
+      - name: Check v1.4 guarded defaults and modules
+        run: |
+          test "$(wp eval '$p=EMS_Local_SEO_Plugin::instance(); echo isset($p->dashboard,$p->setup,$p->contacts,$p->indexnow) ? "yes" : "no";' --path=/tmp/wp --allow-root)" = 'yes'
+          test "$(wp eval 'echo EMS_Local_SEO_Settings::get("enable_indexnow", 0) ? "on" : "off";' --path=/tmp/wp --allow-root)" = 'off'
+          test "$(wp eval 'echo EMS_Local_SEO_Settings::get("gsc_auto_refresh", 0) ? "on" : "off";' --path=/tmp/wp --allow-root)" = 'off'
+          test "$(wp eval 'echo EMS_Local_SEO_Settings::get("enable_contacts", 0) ? "on" : "off";' --path=/tmp/wp --allow-root)" = 'off'
+          test "$(wp eval 'echo EMS_Local_SEO_Contacts::tracking_allowed() ? "on" : "off";' --path=/tmp/wp --allow-root)" = 'off'
+          test "$(wp eval 'echo wp_next_scheduled(EMS_Local_SEO_Search_Console::CRON_HOOK) ? "scheduled" : "none";' --path=/tmp/wp --allow-root)" = 'none'
+
       - name: Check coexistence with TSF metadata hooks
         run: |
           PAGE_ID=$(wp post create --post_type=page --post_status=publish --post_title='EMS Metadata Test' --post_content='Test' --porcelain --path=/tmp/wp --allow-root)
