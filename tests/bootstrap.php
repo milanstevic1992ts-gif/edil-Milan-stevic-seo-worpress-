@@ -34,7 +34,13 @@ if ( ! function_exists( 'sanitize_key' ) ) {
 
 if ( ! function_exists( 'current_time' ) ) {
 	function current_time( $type ) {
-		return '2026-09-18 09:30:00';
+		return 'Y-m-d' === $type ? '2026-09-18' : '2026-09-18 09:30:00';
+	}
+}
+
+if ( ! function_exists( 'do_action' ) ) {
+	function do_action( $hook_name, ...$args ) {
+		return null;
 	}
 }
 
@@ -171,4 +177,5 @@ require_once dirname( __DIR__ ) . '/includes/class-effective-meta.php';
 require_once dirname( __DIR__ ) . '/includes/class-link-health.php';
 require_once dirname( __DIR__ ) . '/includes/class-local-engine.php';
 require_once dirname( __DIR__ ) . '/includes/class-change-journal.php';
+require_once dirname( __DIR__ ) . '/includes/class-conversion-signals.php';
 require_once dirname( __DIR__ ) . '/includes/class-action-center.php';
