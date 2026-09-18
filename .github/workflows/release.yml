@@ -10,27 +10,51 @@ permissions:
 
 jobs:
   release:
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout tested commit
+      - name: Checkout main with history
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate tested source against main
+        id: gate
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          TESTED_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          ELIGIBLE=false
+          if [ "$TESTED_BRANCH" = "main" ] || [[ "$TESTED_BRANCH" == release/* ]]; then
+            if git cat-file -e "$TESTED_SHA^{commit}" 2>/dev/null; then
+              if git diff --quiet HEAD "$TESTED_SHA" -- \
+                ems-local-seo.php includes assets readme.txt composer.json uninstall.php; then
+                ELIGIBLE=true
+              fi
+            fi
+          fi
+          echo "eligible=$ELIGIBLE" >> "$GITHUB_OUTPUT"
+          echo "tested_branch=$TESTED_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          if [ "$ELIGIBLE" != "true" ]; then
+            echo "Release skipped: tested plugin source is not an eligible main-equivalent build."
+          fi
 
       - name: Setup PHP
+        if: steps.gate.outputs.eligible == 'true'
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           coverage: none
 
       - name: PHP syntax check
+        if: steps.gate.outputs.eligible == 'true'
         run: find . -path './.git' -prune -o -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Read plugin version
+        if: steps.gate.outputs.eligible == 'true'
         id: version
         shell: bash
         run: |
@@ -43,6 +67,7 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check existing release
+        if: steps.gate.outputs.eligible == 'true'
         id: release_check
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,7 +80,7 @@ jobs:
           fi
 
       - name: Build clean installable ZIP
-        if: steps.release_check.outputs.exists != 'true'
+        if: steps.gate.outputs.eligible == 'true' && steps.release_check.outputs.exists != 'true'
         run: |
           rm -rf build
           mkdir -p build/ems-local-seo
@@ -73,7 +98,7 @@ jobs:
           sha256sum ems-local-seo.zip > SHA256SUMS.txt
 
       - name: Verify ZIP
-        if: steps.release_check.outputs.exists != 'true'
+        if: steps.gate.outputs.eligible == 'true' && steps.release_check.outputs.exists != 'true'
         run: |
           unzip -l build/ems-local-seo.zip | grep -q 'ems-local-seo/ems-local-seo.php'
           rm -rf /tmp/release-check
@@ -82,11 +107,11 @@ jobs:
           php -l /tmp/release-check/ems-local-seo/ems-local-seo.php
 
       - name: Create GitHub Release and version tag
-        if: steps.release_check.outputs.exists != 'true'
+        if: steps.gate.outputs.eligible == 'true' && steps.release_check.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
-          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          TARGET_SHA: ${{ steps.gate.outputs.main_sha }}
         run: |
           gh release create "$TAG" \
             build/ems-local-seo.zip \
@@ -96,7 +121,7 @@ jobs:
             --generate-notes
 
       - name: Release already exists
-        if: steps.release_check.outputs.exists == 'true'
+        if: steps.gate.outputs.eligible == 'true' && steps.release_check.outputs.exists == 'true'
         env:
           TAG: ${{ steps.version.outputs.tag }}
         run: echo "Release $TAG already exists; nothing to publish."
