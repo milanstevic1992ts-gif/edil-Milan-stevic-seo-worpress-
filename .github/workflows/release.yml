@@ -1,0 +1,50 @@
+name: EMS Local SEO Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: PHP syntax check
+        run: find . -path './.git' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Build installable ZIP
+        run: |
+          rm -rf build
+          mkdir -p build/ems-local-seo
+          rsync -a ./ build/ems-local-seo/ \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'build/' \
+            --exclude '.DS_Store' \
+            --exclude '*.zip'
+          cd build
+          zip -r ems-local-seo.zip ems-local-seo
+          sha256sum ems-local-seo.zip > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            build/ems-local-seo.zip \
+            build/SHA256SUMS.txt \
+            --title "EMS Local SEO ${GITHUB_REF_NAME}" \
+            --generate-notes
