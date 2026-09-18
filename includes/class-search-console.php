@@ -171,11 +171,24 @@ final class EMS_Local_SEO_Search_Console {
 			return $data['data']['rows'];
 		}
 
-		if ( array_is_list( $data ) ) {
+		if ( $this->is_list_array( $data ) ) {
 			return $data;
 		}
 
 		return array();
+	}
+
+	private function is_list_array( array $value ): bool {
+		$expected = 0;
+
+		foreach ( array_keys( $value ) as $key ) {
+			if ( $key !== $expected ) {
+				return false;
+			}
+			$expected++;
+		}
+
+		return true;
 	}
 
 	private function normalize_rows( array $rows, array $dimensions ): array {
