@@ -50,7 +50,7 @@ final class EMS_Local_SEO_Opportunities {
 			wp_die( esc_html__( 'Impossibile generare il CSV.', 'ems-local-seo' ) );
 		}
 
-		fwrite( $output, "ï»¿" );
+		fwrite( $output, "\xEF\xBB\xBF" );
 		fputcsv(
 			$output,
 			array( 'Priorita EMS', 'Segnale', 'Query', 'Landing page', 'Landing secondaria', 'Click', 'Impression', 'CTR %', 'Posizione', 'Motivo', 'Azione suggerita' ),
@@ -88,70 +88,104 @@ final class EMS_Local_SEO_Opportunities {
 		$current_summary  = $this->period_summary( $current_rows );
 		$previous_summary = $this->period_summary( $previous_rows );
 
+		$current_index  = array();
 		$previous_index = array();
+
+		foreach ( $current_rows as $row ) {
+			$current_index[ $this->row_key( $row ) ] = $row;
+		}
 		foreach ( $previous_rows as $row ) {
 			$previous_index[ $this->row_key( $row ) ] = $row;
 		}
 
+		$all_keys = array_values(
+			array_unique(
+				array_merge(
+					array_keys( $current_index ),
+					array_keys( $previous_index )
+				)
+			)
+		);
+
+		$current_meta  = (array) ( $snapshot['current']['meta'] ?? array() );
+		$previous_meta = (array) ( $snapshot['previous']['meta'] ?? array() );
+		$sample_limited = ! empty( $current_meta['possibly_truncated'] ) || ! empty( $previous_meta['possibly_truncated'] );
+
 		$items = array();
 
-		foreach ( $current_rows as $row ) {
-			$key      = $this->row_key( $row );
+		foreach ( $all_keys as $key ) {
+			$row      = $current_index[ $key ] ?? null;
 			$previous = $previous_index[ $key ] ?? null;
 
-			if ( $row['impressions'] >= 20 && $row['position'] >= 5.0 && $row['position'] <= 20.0 ) {
-				$items[] = $this->opportunity(
-					'quick_win',
-					'Quick win',
-					$row,
-					$previous,
-					$this->score_quick_win( $row ),
-					'La query è già vicina alla prima pagina o nella parte bassa della prima pagina.',
-					'Rafforza la pagina con contenuto utile, prove di lavori reali e link interni pertinenti. Evita riscritture radicali senza verificare il trend.'
-				);
-			}
+			if ( is_array( $row ) ) {
+				if ( $row['impressions'] >= 20 && $row['position'] >= 5.0 && $row['position'] <= 20.0 ) {
+					$items[] = $this->opportunity(
+						'quick_win',
+						'Quick win',
+						$row,
+						$previous,
+						$this->score_quick_win( $row ),
+						'La query è già vicina alla prima pagina o nella parte bassa della prima pagina.',
+						'Rafforza la pagina con contenuto utile, prove di lavori reali e link interni pertinenti. Evita riscritture radicali senza verificare il trend.'
+					);
+				}
 
-			$ctr_threshold = $this->ctr_threshold( $row['position'] );
-			if ( $row['impressions'] >= 50 && $row['position'] > 0 && $row['position'] <= 10.0 && $row['ctr'] < $ctr_threshold ) {
-				$items[] = $this->opportunity(
-					'low_ctr',
-					'CTR da migliorare',
-					$row,
-					$previous,
-					$this->score_low_ctr( $row, $ctr_threshold ),
-					'La pagina riceve visibilità in alto ma proporzionalmente pochi click.',
-					'Controlla intento di ricerca, title e snippet gestiti da The SEO Framework. Migliora la promessa della pagina senza clickbait.'
-				);
+				$ctr_threshold = $this->ctr_threshold( $row['position'] );
+				if ( $row['impressions'] >= 50 && $row['position'] > 0 && $row['position'] <= 10.0 && $row['ctr'] < $ctr_threshold ) {
+					$items[] = $this->opportunity(
+						'low_ctr',
+						'CTR da migliorare',
+						$row,
+						$previous,
+						$this->score_low_ctr( $row, $ctr_threshold ),
+						'La pagina riceve visibilità in alto ma proporzionalmente pochi click nelle righe restituite.',
+						'Controlla intento di ricerca, title e snippet gestiti da The SEO Framework. Migliora la promessa della pagina senza clickbait.'
+					);
+				}
+
+				if ( is_array( $previous ) && $previous['impressions'] >= 20 ) {
+					$click_delta      = $this->delta_pct( $row['clicks'], $previous['clicks'] );
+					$impression_delta = $this->delta_pct( $row['impressions'], $previous['impressions'] );
+					$position_delta   = $row['position'] - $previous['position'];
+
+					if ( $click_delta <= -30.0 || ( $impression_delta <= -35.0 && $position_delta >= 1.5 ) ) {
+						$items[] = $this->opportunity(
+							'declining',
+							'Calo da verificare',
+							$row,
+							$previous,
+							$this->score_decline( $row, $previous ),
+							'La stessa coppia query/pagina è presente in entrambi i campioni e mostra un calo.',
+							'Verifica modifiche alla pagina, indicizzazione, SERP e concorrenza. Non consolidare o eliminare contenuti sulla sola base di questo segnale.'
+						);
+					}
+
+					if ( $row['impressions'] >= 20 && $previous['impressions'] >= 10 && ( $click_delta >= 40.0 || $impression_delta >= 50.0 ) ) {
+						$items[] = $this->opportunity(
+							'rising',
+							'In crescita',
+							$row,
+							$previous,
+							$this->score_growth( $row, $previous ),
+							'La stessa coppia query/pagina è presente in entrambi i campioni e sta crescendo.',
+							'Proteggi ciò che sta funzionando: aggiungi link interni e casi reali coerenti, evitando cambi di titolo o struttura non necessari.'
+						);
+					}
+				} elseif ( ! is_array( $previous ) && $row['impressions'] >= 20 ) {
+					$items[] = $this->sample_presence_opportunity(
+						'new_in_sample',
+						'Nuova nel campione',
+						$row,
+						'La coppia query/pagina è presente nel campione corrente ma non in quello precedente.',
+						'Non considerarla automaticamente una nuova query. Verifica uno storico più ampio prima di trarre conclusioni.'
+					);
+				}
+
+				continue;
 			}
 
 			if ( is_array( $previous ) && $previous['impressions'] >= 20 ) {
-				$click_delta      = $this->delta_pct( $row['clicks'], $previous['clicks'] );
-				$impression_delta = $this->delta_pct( $row['impressions'], $previous['impressions'] );
-				$position_delta   = $row['position'] - $previous['position'];
-
-				if ( $click_delta <= -30.0 || ( $impression_delta <= -35.0 && $position_delta >= 1.5 ) ) {
-					$items[] = $this->opportunity(
-						'declining',
-						'Calo da verificare',
-						$row,
-						$previous,
-						$this->score_decline( $row, $previous ),
-						'Click o impression sono scesi rispetto ai 28 giorni precedenti.',
-						'Verifica prima modifiche alla pagina, indicizzazione, SERP e concorrenza. Non consolidare o eliminare contenuti sulla sola base di questo segnale.'
-					);
-				}
-
-				if ( $row['impressions'] >= 20 && $previous['impressions'] >= 10 && ( $click_delta >= 40.0 || $impression_delta >= 50.0 ) ) {
-					$items[] = $this->opportunity(
-						'rising',
-						'In crescita',
-						$row,
-						$previous,
-						$this->score_growth( $row, $previous ),
-						'La query/pagina sta crescendo rispetto al periodo precedente.',
-						'Proteggi ciò che sta funzionando: aggiungi link interni e casi reali coerenti, evitando cambi di titolo o struttura non necessari.'
-					);
-				}
+				$items[] = $this->sample_absence_opportunity( $previous, $sample_limited );
 			}
 		}
 
@@ -173,6 +207,15 @@ final class EMS_Local_SEO_Opportunities {
 			'previous_summary' => $previous_summary,
 			'items'            => array_slice( $items, 0, 150 ),
 			'counts'           => $this->counts_by_type( $items ),
+			'data_quality'     => array(
+				'current_rows'       => count( $current_rows ),
+				'previous_rows'      => count( $previous_rows ),
+				'current_meta'       => $current_meta,
+				'previous_meta'      => $previous_meta,
+				'possibly_truncated' => $sample_limited,
+				'complete_claimed'   => false,
+				'note'               => 'Le metriche mostrate sono calcolate sulle righe restituite dal report query→pagina. Search Analytics può non restituire tutte le righe; l’assenza di una riga non equivale a zero traffico.',
+			),
 		);
 	}
 
@@ -301,6 +344,53 @@ final class EMS_Local_SEO_Opportunities {
 		return $items;
 	}
 
+	private function sample_absence_opportunity( array $previous, bool $sample_limited ): array {
+		$score = min(
+			65,
+			(int) round( 25 + min( 30, log10( max( 1.0, $previous['impressions'] ) + 1 ) * 12 ) )
+		);
+
+		return array(
+			'type'           => 'missing_from_sample',
+			'label'          => 'Assente dal campione corrente',
+			'query'          => $previous['query'],
+			'page'           => $previous['page'],
+			'secondary_page' => '',
+			'clicks'         => $previous['clicks'],
+			'impressions'    => $previous['impressions'],
+			'ctr'            => $previous['ctr'],
+			'position'       => $previous['position'],
+			'previous'       => $previous,
+			'score'          => $sample_limited ? max( 20, $score - 15 ) : $score,
+			'reason'         => 'La coppia query/pagina era presente nel periodo precedente ma non compare nel campione corrente. Questo non dimostra traffico pari a zero.',
+			'action'         => 'Controlla uno storico più ampio e la landing page prima di classificare il caso come calo o perdita di visibilità.',
+			'edit_url'       => $this->edit_url_for_page( $previous['page'] ),
+			'data_note'      => 'Metriche mostrate: periodo precedente. Assenza corrente = dato non osservato nel campione.',
+			'confidence'     => $sample_limited ? 'bassa' : 'media',
+		);
+	}
+
+	private function sample_presence_opportunity( string $type, string $label, array $row, string $reason, string $action ): array {
+		return array(
+			'type'           => $type,
+			'label'          => $label,
+			'query'          => $row['query'],
+			'page'           => $row['page'],
+			'secondary_page' => '',
+			'clicks'         => $row['clicks'],
+			'impressions'    => $row['impressions'],
+			'ctr'            => $row['ctr'],
+			'position'       => $row['position'],
+			'previous'       => null,
+			'score'          => min( 55, (int) round( 25 + min( 30, log10( max( 1.0, $row['impressions'] ) + 1 ) * 12 ) ) ),
+			'reason'         => $reason,
+			'action'         => $action,
+			'edit_url'       => $this->edit_url_for_page( $row['page'] ),
+			'data_note'      => 'Presenza nel campione corrente; assenza nel precedente non prova che la query non esistesse.',
+			'confidence'     => 'bassa',
+		);
+	}
+
 	private function opportunity(
 		string $type,
 		string $label,
@@ -325,6 +415,8 @@ final class EMS_Local_SEO_Opportunities {
 			'reason'      => $reason,
 			'action'      => $action,
 			'edit_url'    => $this->edit_url_for_page( $row['page'] ),
+			'data_note'   => '',
+			'confidence'  => 'media',
 		);
 	}
 
@@ -422,7 +514,7 @@ final class EMS_Local_SEO_Opportunities {
 				<div>
 					<span class="ems-seo-kicker">SEARCH CONSOLE INTELLIGENCE</span>
 					<h1>Opportunità Google</h1>
-					<p>Dati reali Search Console tramite Site Kit. Le priorità EMS sono euristiche interne: aiutano a decidere dove guardare, non garantiscono posizioni.</p>
+					<p>Dati Search Console tramite Site Kit. EMS distingue segnali osservati, righe assenti dal campione e report potenzialmente limitati; le priorità sono diagnostiche, non probabilità di ranking.</p>
 				</div>
 				<div class="ems-seo-version">v<?php echo esc_html( EMS_LOCAL_SEO_VERSION ); ?></div>
 			</div>
@@ -460,14 +552,15 @@ final class EMS_Local_SEO_Opportunities {
 				$current  = $analysis['current_summary'];
 				$previous = $analysis['previous_summary'];
 				?>
+				<div class="notice notice-info inline"><p><?php echo esc_html( (string) $analysis['data_quality']['note'] ); ?><?php if ( ! empty( $analysis['data_quality']['possibly_truncated'] ) ) : ?> <strong>Almeno uno dei due report ha raggiunto il limite richiesto: il campione può essere troncato.</strong><?php endif; ?></p></div>
 				<div class="ems-seo-grid">
 					<div class="ems-seo-card">
-						<span>Click</span>
+						<span>Click nelle righe restituite</span>
 						<strong><?php echo esc_html( number_format_i18n( $current['clicks'], 0 ) ); ?></strong>
 						<small><?php echo esc_html( $this->format_delta( $current['clicks'], $previous['clicks'] ) ); ?> vs periodo precedente</small>
 					</div>
 					<div class="ems-seo-card">
-						<span>Impression</span>
+						<span>Impression nelle righe restituite</span>
 						<strong><?php echo esc_html( number_format_i18n( $current['impressions'], 0 ) ); ?></strong>
 						<small><?php echo esc_html( $this->format_delta( $current['impressions'], $previous['impressions'] ) ); ?> vs periodo precedente</small>
 					</div>
@@ -490,7 +583,8 @@ final class EMS_Local_SEO_Opportunities {
 						CTR: <strong><?php echo esc_html( (string) ( $analysis['counts']['low_ctr'] ?? 0 ) ); ?></strong> ·
 						Cali: <strong><?php echo esc_html( (string) ( $analysis['counts']['declining'] ?? 0 ) ); ?></strong> ·
 						Crescita: <strong><?php echo esc_html( (string) ( $analysis['counts']['rising'] ?? 0 ) ); ?></strong> ·
-						Cannibalizzazione: <strong><?php echo esc_html( (string) ( $analysis['counts']['cannibalization'] ?? 0 ) ); ?></strong>
+						Cannibalizzazione: <strong><?php echo esc_html( (string) ( $analysis['counts']['cannibalization'] ?? 0 ) ); ?></strong> ·
+						Assenti dal campione: <strong><?php echo esc_html( (string) ( $analysis['counts']['missing_from_sample'] ?? 0 ) ); ?></strong>
 					</p>
 				</div>
 
@@ -529,6 +623,7 @@ final class EMS_Local_SEO_Opportunities {
 										<?php echo esc_html( number_format_i18n( $item['impressions'], 0 ) ); ?> impr.<br>
 										CTR <?php echo esc_html( number_format_i18n( $item['ctr'] * 100, 1 ) ); ?>% ·
 										pos. <?php echo esc_html( number_format_i18n( $item['position'], 1 ) ); ?>
+										<?php if ( ! empty( $item['data_note'] ) ) : ?><br><small><?php echo esc_html( $item['data_note'] ); ?></small><?php endif; ?>
 									</td>
 									<td><?php echo esc_html( $item['action'] ); ?></td>
 								</tr>
