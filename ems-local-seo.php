@@ -38,9 +38,15 @@ require_once EMS_LOCAL_SEO_DIR . 'includes/class-case-studies.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-change-journal.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-conversion-signals.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-action-center.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-forecast.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-indexnow.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-contacts.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-setup.php';
+require_once EMS_LOCAL_SEO_DIR . 'includes/class-dashboard.php';
 require_once EMS_LOCAL_SEO_DIR . 'includes/class-plugin.php';
 
 register_activation_hook( __FILE__, array( 'EMS_Local_SEO_Plugin', 'activate' ) );
+register_deactivation_hook( __FILE__, array( 'EMS_Local_SEO_Plugin', 'deactivate' ) );
 
 add_action(
     'plugins_loaded',
