@@ -170,3 +170,19 @@ Gli obiettivi percentuali verranno definiti soltanto dopo la baseline.
 8. Dato assente non significa zero.
 9. Una query presente su due pagine non è automaticamente cannibalizzazione.
 10. Plugin changes → test → ZIP versionato → possibilità di rollback.
+
+
+## Fase 4 — v1.4: dashboard, setup e automazioni controllate
+**Stato: implementata sul branch `feature/v1.4-integrate-upload`.**
+
+- Dashboard “Risultati su Google” sopra alla base v1.2, senza rimuovere il Centro Azioni.
+- 182 giorni Search Console giornalieri per confronti e trend.
+- Scenario lineare a 4 settimane con fascia di variabilità e affidabilità; mai presentato come previsione Google.
+- Setup guidato in 7 passaggi con import non distruttivo da The SEO Framework/tema.
+- Orari attività nel grafo schema.
+- Fallback a Organization quando non esiste un indirizzo pubblico.
+- IndexNow OFF di default, con verifica chiave e throttle per URL.
+- Refresh GSC automatico OFF di default e possibile soltanto dopo un refresh manuale autorizzato.
+- Contatti aggregati OFF di default; tracker emesso solo se un'integrazione consenso abilita `ems_local_seo_contacts_tracking_allowed`.
+- Nessun dato personale nei conteggi commerciali.
+- Nessuna generazione automatica di pagine località o contenuti.
