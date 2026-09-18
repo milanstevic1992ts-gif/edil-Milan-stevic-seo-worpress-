@@ -14,8 +14,11 @@
 - [x] v0.7a Audit ALT immagini in evidenza e immagini nel contenuto.
 - [ ] v0.7b Modulo cantieri/case study e suggerimenti SEO immagini avanzati.
 - [x] v0.8a Content Map locale + slug sospetti + similarità titoli + query duplicate.
-- [ ] v0.8b Clustering per intento basato sui dati Search Console.
-- [ ] v0.9 Integrazione Google Search Console.
+- [x] v0.8b Cannibalizzazione query→landing basata sui dati Search Console.
+- [x] v0.9a Integrazione Google Search Console via Site Kit con adapter isolato.
+- [x] v0.9b Snapshot 28 giorni vs 28 precedenti.
+- [x] v0.9c Opportunity Engine: quick win, CTR, cali, crescita, cannibalizzazione.
+- [ ] v0.9d Export CSV e storico snapshot.
 - [ ] v1.0 Dashboard opportunità, regressioni, CI completa e release ZIP automatica.
 
 ## Principi
