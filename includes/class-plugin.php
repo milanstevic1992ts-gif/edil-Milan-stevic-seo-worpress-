@@ -13,6 +13,8 @@ final class EMS_Local_SEO_Plugin {
     public EMS_Local_SEO_Meta $meta;
     public EMS_Local_SEO_Schema $schema;
     public EMS_Local_SEO_Audit $audit;
+    public EMS_Local_SEO_Effective_Meta $effective_meta;
+    public EMS_Local_SEO_Verification $verification;
     public EMS_Local_SEO_Links $links;
     public EMS_Local_SEO_Content_Map $content_map;
     public EMS_Local_SEO_Search_Console $search_console;
@@ -36,11 +38,14 @@ final class EMS_Local_SEO_Plugin {
         }
 
         $this->booted        = true;
+        self::maybe_upgrade();
         $this->compatibility = new EMS_Local_SEO_Compatibility();
         $this->settings      = new EMS_Local_SEO_Settings( $this->compatibility );
         $this->meta          = new EMS_Local_SEO_Meta( $this->compatibility );
         $this->schema        = new EMS_Local_SEO_Schema( $this->compatibility );
         $this->audit         = new EMS_Local_SEO_Audit( $this->compatibility );
+        $this->effective_meta = new EMS_Local_SEO_Effective_Meta();
+        $this->verification   = new EMS_Local_SEO_Verification( $this->effective_meta, $this->compatibility );
         $this->links         = new EMS_Local_SEO_Links();
         $this->content_map   = new EMS_Local_SEO_Content_Map();
         $this->search_console = new EMS_Local_SEO_Search_Console();
@@ -53,6 +58,7 @@ final class EMS_Local_SEO_Plugin {
         $this->meta->hooks();
         $this->schema->hooks();
         $this->audit->hooks();
+        $this->verification->hooks();
         $this->links->hooks();
         $this->content_map->hooks();
         $this->search_console->hooks();
@@ -74,6 +80,29 @@ final class EMS_Local_SEO_Plugin {
             array(),
             EMS_LOCAL_SEO_VERSION
         );
+    }
+
+    public static function maybe_upgrade(): void {
+        $stored_version = (string) get_option( 'ems_local_seo_version', '' );
+
+        if ( EMS_LOCAL_SEO_VERSION === $stored_version ) {
+            return;
+        }
+
+        $defaults = EMS_Local_SEO_Settings::defaults();
+        $current  = get_option( EMS_Local_SEO_Settings::OPTION_KEY, array() );
+
+        if ( ! is_array( $current ) ) {
+            $current = array();
+        }
+
+        update_option(
+            EMS_Local_SEO_Settings::OPTION_KEY,
+            wp_parse_args( $current, $defaults ),
+            false
+        );
+
+        update_option( 'ems_local_seo_version', EMS_LOCAL_SEO_VERSION, false );
     }
 
     public static function activate(): void {

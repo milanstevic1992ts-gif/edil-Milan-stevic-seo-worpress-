@@ -2,7 +2,7 @@
 
 Plugin WordPress proprietario per **EDIL MILAN STEVIC** e `triesteincostruzione.com`.
 
-Versione stabile candidata: **1.0.0**
+Versione correttiva in sviluppo: **1.0.1**
 
 ## Obiettivo
 SEO locale verticale per impresa edile: integrazione con The SEO Framework, dati strutturati locali, audit tecnico, link interni e Content Map.
@@ -30,4 +30,4 @@ EMS non modifica automaticamente i contenuti e non promette ranking. In modalit�
 ## Installazione
 Le release ZIP saranno generate da GitHub Actions. Lo ZIP deve contenere una cartella `ems-local-seo/` installabile da **Plugin → Aggiungi plugin → Carica plugin** in WordPress.
 
-Vedi `docs/ROADMAP.md` per lo sviluppo.
+Vedi `docs/ROADMAP.md` per la roadmap operativa Trieste e `docs/BASELINE-2026-09-18.md` per i fatti già verificati.

@@ -5,13 +5,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class EMS_Local_SEO_Link_Health {
-	public const TRANSIENT_KEY = 'ems_local_seo_link_health_v1';
-	private const MAX_URLS = 80;
+	public const STATE_OPTION = 'ems_local_seo_link_health_state_v2';
+	private const LOCK_OPTION = 'ems_local_seo_link_health_lock_v2';
+	private const BATCH_SIZE  = 12;
 
 	public function hooks(): void {
 		add_action( 'admin_menu', array( $this, 'register_page' ), 45 );
-		add_action( 'admin_post_ems_local_seo_run_link_health', array( $this, 'handle_run' ) );
-		add_action( 'save_post', array( $this, 'invalidate_cache' ) );
+		add_action( 'admin_post_ems_local_seo_link_health_start', array( $this, 'handle_start' ) );
+		add_action( 'admin_post_ems_local_seo_link_health_next', array( $this, 'handle_next' ) );
+		add_action( 'admin_post_ems_local_seo_link_health_reset', array( $this, 'handle_reset' ) );
+		add_action( 'save_post', array( $this, 'mark_stale' ), 20, 1 );
 	}
 
 	public function register_page(): void {
@@ -25,126 +28,204 @@ final class EMS_Local_SEO_Link_Health {
 		);
 	}
 
-	public function invalidate_cache(): void {
-		delete_transient( self::TRANSIENT_KEY );
+	public function get_state(): array {
+		$state = get_option( self::STATE_OPTION, array() );
+
+		return is_array( $state ) ? $state : array();
 	}
 
-	public function handle_run(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Permessi insufficienti.', 'ems-local-seo' ) );
+	public function mark_stale( int $post_id ): void {
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+			return;
 		}
 
-		check_admin_referer( 'ems_local_seo_run_link_health' );
+		$state = $this->get_state();
+		if ( empty( $state ) || 'idle' === ( $state['status'] ?? 'idle' ) ) {
+			return;
+		}
 
-		$result = $this->run();
-		set_transient( self::TRANSIENT_KEY, $result, 12 * HOUR_IN_SECONDS );
-
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'        => 'ems-local-seo-link-health',
-					'ems_links'   => 'done',
-				),
-				admin_url( 'admin.php' )
-			)
-		);
-		exit;
+		$state['stale']      = true;
+		$state['stale_from'] = current_time( 'mysql' );
+		update_option( self::STATE_OPTION, $state, false );
 	}
 
-	public function run(): array {
+	public function handle_start(): void {
+		$this->guard_action( 'ems_local_seo_link_health_start' );
+
+		$targets = $this->discover_targets();
+		$state   = array(
+			'status'       => empty( $targets ) ? 'complete' : 'running',
+			'started_at'   => current_time( 'mysql' ),
+			'updated_at'   => current_time( 'mysql' ),
+			'completed_at' => empty( $targets ) ? current_time( 'mysql' ) : '',
+			'total'        => count( $targets ),
+			'cursor'       => 0,
+			'targets'      => array_values( $targets ),
+			'items'        => array(),
+			'summary'      => $this->empty_summary(),
+			'stale'        => false,
+			'stale_from'   => '',
+			'coverage'     => array(
+				'post_content' => true,
+				'classic_menus' => true,
+				'block_navigation' => post_type_exists( 'wp_navigation' ),
+			),
+		);
+
+		update_option( self::STATE_OPTION, $state, false );
+		$this->redirect();
+	}
+
+	public function handle_next(): void {
+		$this->guard_action( 'ems_local_seo_link_health_next' );
+
+		if ( ! $this->acquire_lock() ) {
+			wp_safe_redirect(
+				add_query_arg(
+					array(
+						'page'      => 'ems-local-seo-link-health',
+						'ems_links' => 'locked',
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+
+		try {
+			$this->process_batch();
+		} finally {
+			$this->release_lock();
+		}
+
+		$this->redirect();
+	}
+
+	public function handle_reset(): void {
+		$this->guard_action( 'ems_local_seo_link_health_reset' );
+		delete_option( self::STATE_OPTION );
+		delete_option( self::LOCK_OPTION );
+		$this->redirect();
+	}
+
+	private function discover_targets(): array {
+		$targets = array();
+
+		$post_types = array_values( get_post_types( array( 'public' => true ), 'names' ) );
+		if ( post_type_exists( 'wp_navigation' ) ) {
+			$post_types[] = 'wp_navigation';
+		}
+		$post_types = array_values( array_unique( $post_types ) );
+
 		$posts = get_posts(
 			array(
-				'post_type'      => array_values( get_post_types( array( 'public' => true ), 'names' ) ),
-				'post_status'    => 'publish',
+				'post_type'      => $post_types,
+				'post_status'    => array( 'publish' ),
 				'posts_per_page' => -1,
 				'orderby'        => 'ID',
 				'order'          => 'ASC',
 			)
 		);
 
-		$targets = array();
 		foreach ( $posts as $post ) {
-			foreach ( $this->extract_internal_links( $post->post_content ) as $url ) {
-				if ( ! isset( $targets[ $url ] ) ) {
-					$targets[ $url ] = array(
-						'url'     => $url,
-						'sources' => array(),
-					);
-				}
-
-				$targets[ $url ]['sources'][ $post->ID ] = array(
+			$source_type = 'wp_navigation' === $post->post_type ? 'block_navigation' : 'post_content';
+			$this->append_links(
+				$targets,
+				$this->extract_internal_links( (string) $post->post_content ),
+				array(
 					'id'       => $post->ID,
-					'title'    => get_the_title( $post ),
+					'title'    => get_the_title( $post ) ?: '#' . $post->ID,
 					'edit_url' => get_edit_post_link( $post->ID, 'raw' ),
-				);
-			}
-		}
-
-		$total_found = count( $targets );
-		$targets     = array_slice( $targets, 0, self::MAX_URLS, true );
-		$checked     = array();
-
-		foreach ( $targets as $url => $target ) {
-			$status = $this->check_url( $url );
-			$checked[] = array(
-				'url'       => $url,
-				'status'    => $status['status'],
-				'location'  => $status['location'],
-				'error'     => $status['error'],
-				'sources'   => array_values( $target['sources'] ),
+					'type'     => $source_type,
+				)
 			);
 		}
 
-		usort(
-			$checked,
-			static function ( array $a, array $b ): int {
-				$rank = static function ( array $row ): int {
-					if ( ! empty( $row['error'] ) ) {
-						return 0;
+		if ( function_exists( 'wp_get_nav_menus' ) && function_exists( 'wp_get_nav_menu_items' ) ) {
+			$menus = wp_get_nav_menus();
+
+			foreach ( (array) $menus as $menu ) {
+				$items = wp_get_nav_menu_items( $menu->term_id );
+
+				foreach ( (array) $items as $item ) {
+					$url = isset( $item->url ) ? esc_url_raw( (string) $item->url ) : '';
+					if ( ! $this->is_internal_url( $url ) ) {
+						continue;
 					}
-					if ( $row['status'] >= 400 ) {
-						return 1;
-					}
-					if ( $row['status'] >= 300 ) {
-						return 2;
-					}
-					return 3;
-				};
 
-				$ra = $rank( $a );
-				$rb = $rank( $b );
-
-				return $ra === $rb ? $a['status'] <=> $b['status'] : $ra <=> $rb;
-			}
-		);
-
-		$summary = array(
-			'ok'       => 0,
-			'redirect' => 0,
-			'broken'   => 0,
-			'error'    => 0,
-		);
-
-		foreach ( $checked as $row ) {
-			if ( ! empty( $row['error'] ) ) {
-				$summary['error']++;
-			} elseif ( $row['status'] >= 400 ) {
-				$summary['broken']++;
-			} elseif ( $row['status'] >= 300 ) {
-				$summary['redirect']++;
-			} else {
-				$summary['ok']++;
+					$this->append_links(
+						$targets,
+						array( $this->strip_fragment( $url ) ),
+						array(
+							'id'       => 0,
+							'title'    => 'Menu: ' . $menu->name,
+							'edit_url' => admin_url( 'nav-menus.php?action=edit&menu=' . (int) $menu->term_id ),
+							'type'     => 'classic_menu',
+						)
+					);
+				}
 			}
 		}
 
-		return array(
-			'generated_at' => current_time( 'mysql' ),
-			'total_found'  => $total_found,
-			'checked'      => count( $checked ),
-			'truncated'    => $total_found > self::MAX_URLS,
-			'summary'      => $summary,
-			'items'        => $checked,
-		);
+		ksort( $targets );
+
+		return $targets;
+	}
+
+	private function append_links( array &$targets, array $urls, array $source ): void {
+		foreach ( $urls as $url ) {
+			if ( '' === $url ) {
+				continue;
+			}
+
+			if ( ! isset( $targets[ $url ] ) ) {
+				$targets[ $url ] = array(
+					'url'     => $url,
+					'sources' => array(),
+				);
+			}
+
+			$key = md5( (string) $source['type'] . '|' . (string) $source['id'] . '|' . (string) $source['title'] );
+			$targets[ $url ]['sources'][ $key ] = $source;
+		}
+	}
+
+	private function process_batch(): void {
+		$state = $this->get_state();
+
+		if ( empty( $state ) || 'running' !== ( $state['status'] ?? '' ) ) {
+			return;
+		}
+
+		$targets = array_values( (array) ( $state['targets'] ?? array() ) );
+		$cursor  = max( 0, (int) ( $state['cursor'] ?? 0 ) );
+		$total   = count( $targets );
+		$end     = min( $total, $cursor + self::BATCH_SIZE );
+
+		for ( $index = $cursor; $index < $end; $index++ ) {
+			$target = $targets[ $index ];
+			$url    = (string) ( $target['url'] ?? '' );
+			$status = $this->check_url( $url );
+
+			$state['items'][ $url ] = array(
+				'url'      => $url,
+				'status'   => $status['status'],
+				'location' => $status['location'],
+				'error'    => $status['error'],
+				'sources'  => array_values( (array) ( $target['sources'] ?? array() ) ),
+			);
+		}
+
+		$state['cursor']     = $end;
+		$state['updated_at'] = current_time( 'mysql' );
+		$state['summary']    = $this->summarize( (array) $state['items'] );
+
+		if ( $end >= $total ) {
+			$state['status']       = 'complete';
+			$state['completed_at'] = current_time( 'mysql' );
+		}
+
+		update_option( self::STATE_OPTION, $state, false );
 	}
 
 	private function extract_internal_links( string $html ): array {
@@ -152,8 +233,7 @@ final class EMS_Local_SEO_Link_Health {
 			return array();
 		}
 
-		$home_host = mb_strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
-		$urls      = array();
+		$urls = array();
 
 		if ( ! preg_match_all( '/href=["\']([^"\']+)["\']/i', $html, $matches ) ) {
 			return array();
@@ -170,33 +250,40 @@ final class EMS_Local_SEO_Link_Health {
 				$href = home_url( $href );
 			}
 
-			if ( ! wp_http_validate_url( $href ) ) {
-				continue;
-			}
+			$href = $this->strip_fragment( $href );
 
-			$host = mb_strtolower( (string) wp_parse_url( $href, PHP_URL_HOST ) );
-			if ( '' === $host || $host !== $home_host ) {
-				continue;
+			if ( $this->is_internal_url( $href ) ) {
+				$urls[] = esc_url_raw( $href );
 			}
-
-			$fragmentless = strtok( $href, '#' );
-			if ( false === $fragmentless ) {
-				continue;
-			}
-
-			if ( str_contains( $fragmentless, '/wp-admin/' ) || str_contains( $fragmentless, '/wp-login.php' ) ) {
-				continue;
-			}
-
-			$urls[] = esc_url_raw( $fragmentless );
 		}
 
 		return array_values( array_unique( array_filter( $urls ) ) );
 	}
 
+	private function strip_fragment( string $url ): string {
+		$fragmentless = strtok( $url, '#' );
+
+		return false === $fragmentless ? '' : $fragmentless;
+	}
+
+	private function is_internal_url( string $url ): bool {
+		if ( '' === $url || ! wp_http_validate_url( $url ) ) {
+			return false;
+		}
+
+		if ( str_contains( $url, '/wp-admin/' ) || str_contains( $url, '/wp-login.php' ) ) {
+			return false;
+		}
+
+		$home_host = mb_strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
+		$url_host  = mb_strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+
+		return '' !== $home_host && $home_host === $url_host;
+	}
+
 	private function check_url( string $url ): array {
 		$args = array(
-			'timeout'     => 3,
+			'timeout'     => 4,
 			'redirection' => 0,
 			'sslverify'   => true,
 			'user-agent'  => 'EMS-Local-SEO/' . EMS_LOCAL_SEO_VERSION . '; ' . home_url( '/' ),
@@ -241,76 +328,188 @@ final class EMS_Local_SEO_Link_Health {
 		);
 	}
 
+	private function summarize( array $items ): array {
+		$summary = $this->empty_summary();
+
+		foreach ( $items as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			if ( ! empty( $row['error'] ) || 0 === (int) ( $row['status'] ?? 0 ) ) {
+				$summary['error']++;
+			} elseif ( (int) $row['status'] >= 400 ) {
+				$summary['broken']++;
+			} elseif ( (int) $row['status'] >= 300 ) {
+				$summary['redirect']++;
+			} else {
+				$summary['ok']++;
+			}
+		}
+
+		return $summary;
+	}
+
+	private function empty_summary(): array {
+		return array(
+			'ok'       => 0,
+			'redirect' => 0,
+			'broken'   => 0,
+			'error'    => 0,
+		);
+	}
+
+	private function acquire_lock(): bool {
+		$now    = time();
+		$expiry = (int) get_option( self::LOCK_OPTION, 0 );
+
+		if ( $expiry > $now ) {
+			return false;
+		}
+
+		if ( $expiry > 0 ) {
+			delete_option( self::LOCK_OPTION );
+		}
+
+		return add_option( self::LOCK_OPTION, $now + 90, '', false );
+	}
+
+	private function release_lock(): void {
+		delete_option( self::LOCK_OPTION );
+	}
+
+	private function guard_action( string $nonce_action ): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Permessi insufficienti.', 'ems-local-seo' ) );
+		}
+
+		check_admin_referer( $nonce_action );
+	}
+
+	private function redirect(): void {
+		wp_safe_redirect( admin_url( 'admin.php?page=ems-local-seo-link-health' ) );
+		exit;
+	}
+
 	public function render(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 
-		$result = get_transient( self::TRANSIENT_KEY );
+		$state    = $this->get_state();
+		$total    = (int) ( $state['total'] ?? 0 );
+		$cursor   = min( $total, (int) ( $state['cursor'] ?? 0 ) );
+		$coverage = $total > 0 ? (int) round( 100 * $cursor / $total ) : 0;
+		$status   = (string) ( $state['status'] ?? 'idle' );
+		$summary  = (array) ( $state['summary'] ?? $this->empty_summary() );
+		$items    = array_values( (array) ( $state['items'] ?? array() ) );
+
+		usort(
+			$items,
+			static function ( array $a, array $b ): int {
+				$rank = static function ( array $row ): int {
+					if ( ! empty( $row['error'] ) || 0 === (int) ( $row['status'] ?? 0 ) ) {
+						return 0;
+					}
+					if ( (int) $row['status'] >= 400 ) {
+						return 1;
+					}
+					if ( (int) $row['status'] >= 300 ) {
+						return 2;
+					}
+					return 3;
+				};
+
+				return $rank( $a ) <=> $rank( $b );
+			}
+		);
 		?>
 		<div class="wrap ems-seo-wrap">
 			<div class="ems-seo-hero">
 				<div>
 					<span class="ems-seo-kicker">TECHNICAL SEO</span>
 					<h1>Link Health</h1>
-					<p>Controlla manualmente i link interni pubblicati e segnala redirect, 4xx/5xx ed errori di raggiungibilità. EMS non crea redirect automaticamente.</p>
+					<p>Scansione completa e riprendibile dei link interni rilevati in contenuti e navigazione. EMS non crea redirect automaticamente.</p>
 				</div>
-				<div class="ems-seo-version">v<?php echo esc_html( EMS_LOCAL_SEO_VERSION ); ?></div>
+				<div class="ems-seo-score"><?php echo esc_html( (string) $coverage ); ?><small>% coperto</small></div>
 			</div>
+
+			<?php if ( ! empty( $state['stale'] ) ) : ?>
+				<div class="notice notice-warning inline"><p>Contenuti modificati dopo l’avvio. I risultati restano visibili ma la scansione è potenzialmente non aggiornata.</p></div>
+			<?php endif; ?>
 
 			<div class="ems-seo-panel">
-				<p>Il controllo parte solo quando premi il pulsante e verifica al massimo <?php echo esc_html( (string) self::MAX_URLS ); ?> URL interni unici per esecuzione, per non sovraccaricare il sito.</p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-					<input type="hidden" name="action" value="ems_local_seo_run_link_health">
-					<?php wp_nonce_field( 'ems_local_seo_run_link_health' ); ?>
-					<?php submit_button( 'Controlla link interni', 'primary', 'submit', false ); ?>
-				</form>
+				<p><strong>Stato:</strong> <?php echo esc_html( $status ); ?> · <strong>Controllati:</strong> <?php echo esc_html( $cursor . '/' . $total ); ?> URL · <strong>Lotto:</strong> <?php echo esc_html( (string) self::BATCH_SIZE ); ?> URL.</p>
+				<?php if ( ! empty( $state['coverage'] ) ) : ?>
+					<p><small>Copertura sorgenti: contenuto pubblico sì · menu classici sì · navigazione a blocchi <?php echo ! empty( $state['coverage']['block_navigation'] ) ? 'sì' : 'non rilevata'; ?>.</small></p>
+				<?php endif; ?>
+
+				<div style="display:flex;gap:8px;flex-wrap:wrap">
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="ems_local_seo_link_health_start">
+						<?php wp_nonce_field( 'ems_local_seo_link_health_start' ); ?>
+						<?php submit_button( empty( $state ) ? 'Prepara scansione completa' : 'Ricomincia da zero', 'secondary', 'submit', false ); ?>
+					</form>
+
+					<?php if ( 'running' === $status ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+							<input type="hidden" name="action" value="ems_local_seo_link_health_next">
+							<?php wp_nonce_field( 'ems_local_seo_link_health_next' ); ?>
+							<?php submit_button( 'Controlla prossimo lotto', 'primary', 'submit', false ); ?>
+						</form>
+					<?php endif; ?>
+
+					<?php if ( ! empty( $state ) ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+							<input type="hidden" name="action" value="ems_local_seo_link_health_reset">
+							<?php wp_nonce_field( 'ems_local_seo_link_health_reset' ); ?>
+							<?php submit_button( 'Azzera risultati', 'delete', 'submit', false ); ?>
+						</form>
+					<?php endif; ?>
+				</div>
 			</div>
 
-			<?php if ( is_array( $result ) ) : ?>
+			<?php if ( ! empty( $state ) ) : ?>
 				<div class="ems-seo-grid">
-					<div class="ems-seo-card"><span>OK</span><strong><?php echo esc_html( (string) $result['summary']['ok'] ); ?></strong><small>2xx</small></div>
-					<div class="ems-seo-card"><span>Redirect</span><strong><?php echo esc_html( (string) $result['summary']['redirect'] ); ?></strong><small>3xx da valutare nei link interni</small></div>
-					<div class="ems-seo-card"><span>Rotti</span><strong><?php echo esc_html( (string) $result['summary']['broken'] ); ?></strong><small>4xx / 5xx</small></div>
-					<div class="ems-seo-card"><span>Errori rete</span><strong><?php echo esc_html( (string) $result['summary']['error'] ); ?></strong><small>timeout o risposta non disponibile</small></div>
+					<div class="ems-seo-card"><span>OK</span><strong><?php echo esc_html( (string) ( $summary['ok'] ?? 0 ) ); ?></strong><small>2xx</small></div>
+					<div class="ems-seo-card"><span>Redirect</span><strong><?php echo esc_html( (string) ( $summary['redirect'] ?? 0 ) ); ?></strong><small>3xx da valutare</small></div>
+					<div class="ems-seo-card"><span>Rotti</span><strong><?php echo esc_html( (string) ( $summary['broken'] ?? 0 ) ); ?></strong><small>4xx / 5xx</small></div>
+					<div class="ems-seo-card"><span>Errori rete</span><strong><?php echo esc_html( (string) ( $summary['error'] ?? 0 ) ); ?></strong><small>timeout / risposta non disponibile</small></div>
 				</div>
-
-				<p>Controllati <?php echo esc_html( (string) $result['checked'] ); ?> di <?php echo esc_html( (string) $result['total_found'] ); ?> URL interni rilevati. Ultimo controllo: <?php echo esc_html( (string) $result['generated_at'] ); ?>.</p>
 
 				<div class="ems-seo-panel ems-seo-table-wrap">
 					<table class="widefat striped">
-						<thead><tr><th>Stato</th><th>URL</th><th>Destinazione redirect / errore</th><th>Usato da</th></tr></thead>
+						<thead><tr><th>Stato</th><th>URL</th><th>Destinazione / errore</th><th>Usato da</th></tr></thead>
 						<tbody>
-						<?php foreach ( $result['items'] as $item ) : ?>
-							<tr>
-								<td>
-									<?php if ( ! empty( $item['error'] ) ) : ?>
-										<span class="ems-seo-badge ems-seo-warning">ERRORE</span>
-									<?php elseif ( $item['status'] >= 400 ) : ?>
-										<span class="ems-seo-badge ems-seo-warning"><?php echo esc_html( (string) $item['status'] ); ?></span>
-									<?php elseif ( $item['status'] >= 300 ) : ?>
-										<span class="ems-seo-badge ems-seo-info"><?php echo esc_html( (string) $item['status'] ); ?></span>
-									<?php else : ?>
-										<strong><?php echo esc_html( (string) $item['status'] ); ?></strong>
-									<?php endif; ?>
-								</td>
-								<td><a href="<?php echo esc_url( $item['url'] ); ?>" target="_blank" rel="noopener"><?php echo esc_html( $item['url'] ); ?></a></td>
-								<td>
-									<?php
-									echo esc_html(
-										! empty( $item['error'] )
-											? $item['error']
-											: ( ! empty( $item['location'] ) ? $item['location'] : '—' )
-									);
-									?>
-								</td>
-								<td>
-									<?php foreach ( array_slice( $item['sources'], 0, 4 ) as $source ) : ?>
-										<a href="<?php echo esc_url( $source['edit_url'] ); ?>"><?php echo esc_html( $source['title'] ?: '#' . $source['id'] ); ?></a><br>
-									<?php endforeach; ?>
-								</td>
-							</tr>
-						<?php endforeach; ?>
+						<?php if ( empty( $items ) ) : ?>
+							<tr><td colspan="4">Nessun URL è stato ancora controllato.</td></tr>
+						<?php else : ?>
+							<?php foreach ( $items as $item ) : ?>
+								<tr>
+									<td>
+										<?php if ( ! empty( $item['error'] ) || 0 === (int) $item['status'] ) : ?>
+											<span class="ems-seo-badge ems-seo-warning">ERRORE</span>
+										<?php elseif ( $item['status'] >= 400 ) : ?>
+											<span class="ems-seo-badge ems-seo-warning"><?php echo esc_html( (string) $item['status'] ); ?></span>
+										<?php elseif ( $item['status'] >= 300 ) : ?>
+											<span class="ems-seo-badge ems-seo-info"><?php echo esc_html( (string) $item['status'] ); ?></span>
+										<?php else : ?>
+											<strong><?php echo esc_html( (string) $item['status'] ); ?></strong>
+										<?php endif; ?>
+									</td>
+									<td><a href="<?php echo esc_url( $item['url'] ); ?>" target="_blank" rel="noopener"><?php echo esc_html( $item['url'] ); ?></a></td>
+									<td><?php echo esc_html( ! empty( $item['error'] ) ? $item['error'] : ( $item['location'] ?: '—' ) ); ?></td>
+									<td>
+										<?php foreach ( array_slice( $item['sources'], 0, 5 ) as $source ) : ?>
+											<?php if ( ! empty( $source['edit_url'] ) ) : ?><a href="<?php echo esc_url( $source['edit_url'] ); ?>"><?php endif; ?>
+											<?php echo esc_html( $source['title'] ); ?>
+											<?php if ( ! empty( $source['edit_url'] ) ) : ?></a><?php endif; ?>
+											<br><small><?php echo esc_html( $source['type'] ); ?></small><br>
+										<?php endforeach; ?>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						<?php endif; ?>
 						</tbody>
 					</table>
 				</div>

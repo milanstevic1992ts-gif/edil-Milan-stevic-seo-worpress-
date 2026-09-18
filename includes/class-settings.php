@@ -22,7 +22,7 @@ final class EMS_Local_SEO_Settings {
             'business_name'         => 'EDIL MILAN STEVIC',
             'business_schema_type'  => 'GeneralContractor',
             'legal_name'            => '',
-            'description'           => 'Ristrutturazioni, bagni, piastrellatura, cartongesso, pavimenti e opere murarie a Trieste e provincia.',
+            'description'           => 'Ristrutturazioni, bagni, piastrellatura, cartongesso, pavimenti e opere murarie a Trieste.',
             'phone'                 => '',
             'email'                 => '',
             'website'               => home_url( '/' ),
@@ -38,7 +38,7 @@ final class EMS_Local_SEO_Settings {
             'facebook_url'          => '',
             'instagram_url'         => '',
             'tiktok_url'            => '',
-            'service_areas'         => "Trieste\nMuggia\nOpicina\nDuino-Aurisina\nSan Dorligo della Valle",
+            'service_areas'         => "Trieste",
             'services'              => "Ristrutturazione appartamenti\nRistrutturazione bagni\nPosa piastrelle\nCartongesso\nPavimenti SPC e LVT\nTinteggiatura e rasatura\nOpere murarie",
             'enable_schema'         => 1,
             'schema_ownership'      => 'auto',
@@ -165,8 +165,8 @@ final class EMS_Local_SEO_Settings {
 
             <div class="ems-seo-panel">
                 <h2>Stato sviluppo</h2>
-                <p><strong>v0.1 Core:</strong> completato · <strong>v0.2 Metadata:</strong> completato · <strong>v0.3 Entity locale:</strong> completato · <strong>v0.4 Schema graph:</strong> completato · <strong>v0.5 Audit:</strong> completato · <strong>v0.6 Link interni:</strong> completato · <strong>v0.8 Content Map:</strong> completato · <strong>v0.9 Search Console:</strong> completato · <strong>v1.0:</strong> release candidate.</p>
-                <p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-opportunities' ) ); ?>">Opportunità Google</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-audit' ) ); ?>">Apri audit</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-link-health' ) ); ?>">Link Health</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-case-studies' ) ); ?>">Lavori reali</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-settings' ) ); ?>">Configura attività</a></p>
+                <p><strong>v1.0.1 P0:</strong> stabilità in verifica · metadata pubblici · scansioni riprendibili · GSC con qualità del dato · test WordPress/TSF.</p>
+                <p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-verification' ) ); ?>">Verifica HTML pubblico</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-link-health' ) ); ?>">Link Health</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-opportunities' ) ); ?>">Opportunità Google</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-audit' ) ); ?>">Audit database</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=ems-local-seo-settings' ) ); ?>">Configura attività</a></p>
             </div>
         </div>
         <?php

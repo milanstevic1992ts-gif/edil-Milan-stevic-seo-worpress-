@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
+  lint-and-unit:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -23,13 +23,20 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: none
+          tools: composer:v2
 
       - name: PHP syntax check
-        run: find . -path './.git' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find . -path './.git' -prune -o -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Install test dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHPUnit
+        run: composer test
 
   package:
     runs-on: ubuntu-latest
-    needs: lint
+    needs: lint-and-unit
 
     steps:
       - name: Checkout
@@ -43,9 +50,20 @@ jobs:
             --exclude '.git/' \
             --exclude '.github/' \
             --exclude 'build/' \
+            --exclude 'tests/' \
+            --exclude 'vendor/' \
+            --exclude 'phpunit.xml.dist' \
             --exclude '.DS_Store'
           cd build
           zip -r ems-local-seo.zip ems-local-seo
+
+      - name: Verify ZIP structure
+        run: |
+          unzip -l build/ems-local-seo.zip | grep -q 'ems-local-seo/ems-local-seo.php'
+          rm -rf /tmp/ems-zip-check
+          mkdir -p /tmp/ems-zip-check
+          unzip -q build/ems-local-seo.zip -d /tmp/ems-zip-check
+          php -l /tmp/ems-zip-check/ems-local-seo/ems-local-seo.php
 
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
@@ -53,3 +71,96 @@ jobs:
           name: ems-local-seo
           path: build/ems-local-seo.zip
           if-no-files-found: error
+
+  wordpress-smoke:
+    runs-on: ubuntu-latest
+    needs: lint-and-unit
+    steps:
+      - name: Checkout with tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, dom, mbstring
+          coverage: none
+
+      - name: Start and configure MySQL
+        run: |
+          sudo systemctl start mysql.service
+          mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS wordpress_test;"
+          mysql -uroot -proot -e "CREATE USER IF NOT EXISTS 'ems'@'127.0.0.1' IDENTIFIED BY 'ems_test_password';"
+          mysql -uroot -proot -e "GRANT ALL PRIVILEGES ON wordpress_test.* TO 'ems'@'127.0.0.1'; FLUSH PRIVILEGES;"
+          php -r '$m=new mysqli("127.0.0.1","ems","ems_test_password","wordpress_test",3306); if ($m->connect_errno) { fwrite(STDERR,$m->connect_error); exit(1); } echo "MySQL ready", PHP_EOL; $m->close();'
+
+      - name: Install WP-CLI
+        run: |
+          curl -L -o /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x /tmp/wp-cli.phar
+          sudo mv /tmp/wp-cli.phar /usr/local/bin/wp
+          wp --info
+
+      - name: Install WordPress
+        run: |
+          rm -rf /tmp/wp
+          mkdir -p /tmp/wp
+          wp core download --path=/tmp/wp --allow-root
+          wp config create --dbname=wordpress_test --dbuser=ems --dbpass=ems_test_password --dbhost=127.0.0.1:3306 --path=/tmp/wp --allow-root
+          wp core install --url=http://ems.test --title='EMS Test' --admin_user=admin --admin_password='adminpass123!' --admin_email=test@example.com --skip-email --path=/tmp/wp --allow-root
+
+      - name: Install The SEO Framework
+        run: wp plugin install autodescription --activate --path=/tmp/wp --allow-root
+
+      - name: Install stable v1.0.0 and activate
+        run: |
+          rm -rf /tmp/stable /tmp/wp/wp-content/plugins/ems-local-seo
+          mkdir -p /tmp/stable /tmp/wp/wp-content/plugins/ems-local-seo
+          git archive v1.0.0 | tar -x -C /tmp/stable
+          rsync -a /tmp/stable/ /tmp/wp/wp-content/plugins/ems-local-seo/ \
+            --exclude '.git/' --exclude '.github/' --exclude 'tests/' --exclude 'vendor/' --exclude 'build/'
+          wp plugin activate ems-local-seo --path=/tmp/wp --allow-root
+          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = '1.0.0'
+          test "$(wp eval '$p=EMS_Local_SEO_Plugin::instance(); echo $p->compatibility->has_tsf() ? "yes" : "no";' --path=/tmp/wp --allow-root)" = 'yes'
+
+      - name: Upgrade files to v1.0.1 candidate
+        run: |
+          rsync -a --delete ./ /tmp/wp/wp-content/plugins/ems-local-seo/ \
+            --exclude '.git/' --exclude '.github/' --exclude 'tests/' --exclude 'vendor/' --exclude 'build/' --exclude 'phpunit.xml.dist'
+          test "$(wp eval 'echo EMS_LOCAL_SEO_VERSION;' --path=/tmp/wp --allow-root)" = '1.0.1'
+          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = '1.0.1'
+          wp plugin is-active ems-local-seo --path=/tmp/wp --allow-root
+
+      - name: Check coexistence with TSF metadata hooks
+        run: |
+          PAGE_ID=$(wp post create --post_type=page --post_status=publish --post_title='EMS Metadata Test' --post_content='Test' --porcelain --path=/tmp/wp --allow-root)
+          HEAD=$(wp eval "global \$wp_query; \$wp_query = new WP_Query(array('page_id' => ${PAGE_ID})); \$wp_query->the_post(); ob_start(); do_action('wp_head'); echo ob_get_clean();" --path=/tmp/wp --allow-root)
+          DESC_COUNT=$(printf '%s' "$HEAD" | grep -Eio '<meta[^>]+name=["'"'"']description["'"'"'][^>]*>' | wc -l | tr -d ' ')
+          CANONICAL_COUNT=$(printf '%s' "$HEAD" | grep -Eio '<link[^>]+rel=["'"'"'][^"'"'"']*canonical[^"'"'"']*["'"'"'][^>]*>' | wc -l | tr -d ' ')
+          test "$DESC_COUNT" -le 1
+          test "$CANONICAL_COUNT" -le 1
+
+      - name: Roll back to v1.0.0
+        run: |
+          rsync -a --delete /tmp/stable/ /tmp/wp/wp-content/plugins/ems-local-seo/ \
+            --exclude '.git/' --exclude '.github/' --exclude 'tests/' --exclude 'vendor/' --exclude 'build/'
+          wp plugin deactivate ems-local-seo --path=/tmp/wp --allow-root
+          wp plugin activate ems-local-seo --path=/tmp/wp --allow-root
+          test "$(wp option get ems_local_seo_version --path=/tmp/wp --allow-root)" = '1.0.0'
+
+      - name: Build and install candidate ZIP
+        run: |
+          rm -rf build
+          mkdir -p build/ems-local-seo
+          rsync -a ./ build/ems-local-seo/ \
+            --exclude '.git/' --exclude '.github/' --exclude 'build/' --exclude 'tests/' --exclude 'vendor/' --exclude 'phpunit.xml.dist'
+          cd build
+          zip -qr ems-local-seo.zip ems-local-seo
+          cd ..
+          wp plugin deactivate ems-local-seo --path=/tmp/wp --allow-root
+          rm -rf /tmp/wp/wp-content/plugins/ems-local-seo
+          wp plugin install build/ems-local-seo.zip --activate --path=/tmp/wp --allow-root
+          test "$(wp eval 'echo EMS_LOCAL_SEO_VERSION;' --path=/tmp/wp --allow-root)" = '1.0.1'
+          wp plugin is-active ems-local-seo --path=/tmp/wp --allow-root
