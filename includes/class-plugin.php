@@ -13,6 +13,8 @@ final class EMS_Local_SEO_Plugin {
     public EMS_Local_SEO_Meta $meta;
     public EMS_Local_SEO_Schema $schema;
     public EMS_Local_SEO_Audit $audit;
+    public EMS_Local_SEO_Effective_Meta $effective_meta;
+    public EMS_Local_SEO_Verification $verification;
     public EMS_Local_SEO_Links $links;
     public EMS_Local_SEO_Content_Map $content_map;
     public EMS_Local_SEO_Search_Console $search_console;
@@ -41,6 +43,8 @@ final class EMS_Local_SEO_Plugin {
         $this->meta          = new EMS_Local_SEO_Meta( $this->compatibility );
         $this->schema        = new EMS_Local_SEO_Schema( $this->compatibility );
         $this->audit         = new EMS_Local_SEO_Audit( $this->compatibility );
+        $this->effective_meta = new EMS_Local_SEO_Effective_Meta();
+        $this->verification   = new EMS_Local_SEO_Verification( $this->effective_meta, $this->compatibility );
         $this->links         = new EMS_Local_SEO_Links();
         $this->content_map   = new EMS_Local_SEO_Content_Map();
         $this->search_console = new EMS_Local_SEO_Search_Console();
@@ -53,6 +57,7 @@ final class EMS_Local_SEO_Plugin {
         $this->meta->hooks();
         $this->schema->hooks();
         $this->audit->hooks();
+        $this->verification->hooks();
         $this->links->hooks();
         $this->content_map->hooks();
         $this->search_console->hooks();
